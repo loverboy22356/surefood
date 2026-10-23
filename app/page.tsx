@@ -292,8 +292,7 @@ export default function Home() {
         }
       });
 
-      const hasLoadedMarketplaceData = results.some((result) => result.status === "fulfilled");
-      setCatalogError(hasLoadedMarketplaceData && errors.length > 0 ? errors.join(" ") : "");
+      setCatalogError(errors.join(" "));
       setCatalogLoading(false);
     }
     void loadCatalog();
@@ -554,7 +553,7 @@ export default function Home() {
             <PromoRail />
           </div>
         </div>
-        {catalogError && <p className="catalog-status" role="alert">Some live marketplace data could not be loaded.</p>}
+        {catalogError && <p className="catalog-status" role="alert">{catalogError}</p>}
         <div className="store-sections">
           <MarketplaceSection
             id="fresh"

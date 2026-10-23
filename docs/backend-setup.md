@@ -64,8 +64,10 @@ The application uses Firebase Authentication custom tokens and Cloud Firestore, 
 ## Production security checklist
 
 - Rotate any provider secrets that were pasted into chat before adding replacements to the deployment secret manager.
+- Run the Vercel deployment on Node.js 22.x. Firebase Admin 14 requires Node.js 22 or newer, and its authentication dependency uses ESM modules that fail when loaded by older Node.js runtimes.
 - Use production Firebase, Brevo, and Cloudinary credentials only in environment-specific secret storage. Never commit `.env.local`, service-account JSON, OTP values, or uploaded identity documents.
 - Configure Firebase Auth authorized domains, Google OAuth consent, Brevo sender/domain authentication, and Cloudinary access/retention settings before onboarding real businesses.
+- For the production catalog, set the Firebase web-app variables and `FIREBASE_SERVICE_ACCOUNT_JSON` in the hosting environment for the same Firebase project, then deploy `firestore.indexes.json`. A product appears publicly only while its listing status is `active`, its seller profile is `approved`, any recorded approval fee is `paid`, and its expiry date has not passed.
 - Existing KYC files in Firebase Storage are not migrated automatically. Staff should reject legacy pending applications with a re-upload note; applicants can then replace documents with Cloudinary uploads before resubmitting.
 - Set staff custom claims only through a trusted, audited Admin SDK process. Do not create public staff signup or expose service-account credentials in the app.
 - Use a payment provider and signed payment webhook before treating `Confirm` as proof of payment or enabling customer-facing paid checkout.
