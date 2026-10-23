@@ -15,3 +15,5 @@ service-account*.json
 firebase-service-account*.json
 
 .next-dev.log
+
+*.zip
