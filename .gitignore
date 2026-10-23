@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+service-account*.json
+firebase-service-account*.json
+
+.next-dev.log
