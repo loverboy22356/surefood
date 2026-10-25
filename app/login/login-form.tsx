@@ -55,12 +55,28 @@ export default function LoginForm() {
     const code = reason && typeof reason === "object" && "code" in reason
       ? String(reason.code)
       : "";
-    if (code === "auth/popup-closed-by-user") return "Google sign-in was cancelled. Select Continue with Google to try again.";
-    if (code === "auth/popup-blocked") return "Your browser blocked the Google sign-in window. Allow popups for this site and try again.";
-    if (code === "auth/unauthorized-domain") return "This site is not authorized for Google sign-in. Add its domain in Firebase Authentication settings.";
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return "Google sign-in was cancelled. Select Continue with Google to try again.";
+    if (code === "auth/popup-blocked") return "Your browser blocked the Google sign-in window. Allow popups for this site and try again, or open the site in Chrome.";
+    if (code === "auth/unauthorized-domain") return "This domain is not authorized for Google sign-in yet. Add it under Firebase Authentication → Settings → Authorized domains.";
     if (code === "auth/operation-not-allowed") return "Google sign-in is not enabled for this Firebase project.";
     if (code === "auth/network-request-failed") return "Google sign-in could not reach Firebase. Check your connection and try again.";
     return reason instanceof Error ? reason.message : "Google sign-in could not be completed.";
+  }
+
+  /**
+   * Popups are blocked or ignored in plenty of mobile browsers and in-app
+   * webviews, so a failed popup falls back to a full-page redirect that
+   * completes through getRedirectResult above.
+   */
+  function shouldFallBackToRedirect(reason: unknown) {
+    const code = reason && typeof reason === "object" && "code" in reason ? String(reason.code) : "";
+    return [
+      "auth/popup-blocked",
+      "auth/popup-closed-by-user",
+      "auth/cancelled-popup-request",
+      "auth/operation-not-supported-in-this-environment",
+      "auth/web-storage-unsupported",
+    ].includes(code);
   }
 
   async function requestCode(event: React.FormEvent<HTMLFormElement>) {
@@ -112,14 +128,22 @@ export default function LoginForm() {
   async function loginWithGoogle() {
     setError("");
     if (!human) {
-      setError("Please confirm you are not a robot first.");
+      setError("Confirm the quick human check just above, then select Continue with Google.");
       return;
     }
     setBusy(true);
     try {
       if (!firebaseConfigured()) throw new Error("Firebase sign-in is not configured yet.");
-      const credential = await signInWithPopup(firebaseAuth(), new GoogleAuthProvider());
-      const idToken = await credential.user.getIdToken();
+      const auth = firebaseAuth();
+      let googleUser;
+      try {
+        googleUser = (await signInWithPopup(auth, new GoogleAuthProvider())).user;
+      } catch (reason) {
+        if (!shouldFallBackToRedirect(reason)) throw reason;
+        await signInWithRedirect(auth, new GoogleAuthProvider());
+        return;
+      }
+      const idToken = await googleUser.getIdToken();
       const response = await fetch("/api/profile", {
         headers: { authorization: `Bearer ${idToken}` },
         signal: AbortSignal.timeout(15_000),
@@ -162,7 +186,7 @@ export default function LoginForm() {
       <HumanCheck verified={human} onChange={setHuman} disabled={busy} />
       {error && <p className="auth-error" role="alert">{error}</p>}
       <div className="auth-divider"><span />or<span /></div>
-      <button className="google-button" type="button" disabled={busy || !human} onClick={loginWithGoogle}><span className="google-mark">G</span>Continue with Google</button>
+      <button className="google-button" type="button" disabled={busy} onClick={loginWithGoogle}><span className="google-mark">G</span>{busy ? "Connecting to Google…" : "Continue with Google"}</button>
       <p className="auth-switch">New to SureFood? <a href="/signup">Create an account</a></p>
     </div>
   );

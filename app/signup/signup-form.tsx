@@ -8,6 +8,7 @@ import {
   getRedirectResult,
   signInWithCustomToken,
   signInWithPopup,
+  signInWithRedirect,
   type User,
 } from "firebase/auth";
 import type { AppRole } from "@/lib/auth/types";
@@ -194,15 +195,34 @@ export default function SignupForm() {
       const existingGoogleUser = auth.currentUser?.providerData.some(
         (provider) => provider.providerId === GoogleAuthProvider.PROVIDER_ID,
       ) ? auth.currentUser : null;
-      const googleUser = existingGoogleUser ?? (await signInWithPopup(auth, new GoogleAuthProvider())).user;
+      let googleUser = existingGoogleUser;
+      if (!googleUser) {
+        try {
+          googleUser = (await signInWithPopup(auth, new GoogleAuthProvider())).user;
+        } catch (reason) {
+          // Popups are blocked in many mobile browsers and in-app webviews. Keep the
+          // details the visitor typed, then finish through a full-page redirect that
+          // the effect above picks up when they come back.
+          const code = reason && typeof reason === "object" && "code" in reason ? String(reason.code) : "";
+          if (["auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/operation-not-supported-in-this-environment", "auth/web-storage-unsupported"].includes(code)) {
+            window.sessionStorage.setItem(googleSignupStorageKey, JSON.stringify({ role, displayName, phone, location }));
+            await signInWithRedirect(auth, new GoogleAuthProvider());
+            return;
+          }
+          throw reason;
+        }
+      }
       const profile = await createGoogleProfile(googleUser, role, displayName, phone, location);
       window.sessionStorage.removeItem(googleSignupStorageKey);
       router.replace(destination(profile.role));
     } catch (reason) {
       console.error("Google sign-up could not be completed.", reason);
-      setError(reason instanceof Error && "code" in reason && reason.code === "auth/popup-blocked"
+      const code = reason && typeof reason === "object" && "code" in reason ? String(reason.code) : "";
+      setError(code === "auth/popup-blocked"
         ? "Your browser blocked the Google sign-in popup. Allow popups for this site and try again."
-        : reason instanceof Error ? reason.message : "Google sign-up could not be completed.");
+        : code === "auth/unauthorized-domain"
+          ? "This domain is not authorized for Google sign-in yet. Add it under Firebase Authentication → Settings → Authorized domains."
+          : reason instanceof Error ? reason.message : "Google sign-up could not be completed.");
     } finally {
       setBusy(false);
     }

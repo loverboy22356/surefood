@@ -4,6 +4,7 @@ import { authenticatedUser } from "@/lib/auth/server";
 import { createActivity } from "@/lib/activity";
 import { adminDb } from "@/lib/firebase/admin";
 import { jsonError, readJson } from "@/lib/http";
+import { AFFILIATE_COOKIE, isAffiliateCode, normaliseAffiliateCode } from "@/lib/affiliates";
 
 type RequestedItem = { productId: string; quantity: number };
 
@@ -71,6 +72,27 @@ export async function POST(request: Request) {
   // leave checkout to complete their profile first.
   const requestedPhone = typeof body?.phone === "string" ? body.phone.trim() : "";
   const requestedAddress = typeof body?.deliveryAddress === "string" ? body.deliveryAddress.trim() : "";
+
+  // An affiliate link left a referral code; store it on the order so commission can
+  // be worked out when the order is actually paid. An unknown or paused code is dropped.
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookieMatch = new RegExp(`(?:^|;\\s*)${AFFILIATE_COOKIE}=([^;]+)`).exec(cookieHeader);
+  const suppliedAffiliateCode = normaliseAffiliateCode(cookieMatch ? decodeURIComponent(cookieMatch[1]) : "");
+  let affiliateCode = "";
+  if (isAffiliateCode(suppliedAffiliateCode)) {
+    try {
+      const affiliateSnapshot = await adminDb().collection("affiliates")
+        .where("code", "==", suppliedAffiliateCode)
+        .limit(1)
+        .get();
+      const affiliate = affiliateSnapshot.docs[0]?.data();
+      if (affiliate && String(affiliate.status ?? "active") === "active" && affiliate.uid !== user.uid) {
+        affiliateCode = suppliedAffiliateCode;
+      }
+    } catch (error) {
+      console.error("Could not check the referral code on this order.", error);
+    }
+  }
 
   const checkoutHash = createHash("sha256")
     .update(JSON.stringify([...items].sort((a, b) => a.productId.localeCompare(b.productId))))
@@ -192,6 +214,7 @@ export async function POST(request: Request) {
           inventoryReleased: false,
           checkoutId,
           checkoutHash,
+          ...(affiliateCode ? { affiliateCode } : {}),
           createdAt: now,
           updatedAt: now,
         };

@@ -5,6 +5,7 @@ import "./motion.css";
 import "./vendor/vendor.css";
 import { AutoLocalize } from "./components/auto-localize";
 import { LocaleProvider } from "./components/locale-provider";
+import { ReferralCapture } from "./components/referral-capture";
 
 export const metadata: Metadata = {
   title: "SureFood | Fresh, good food",
@@ -22,6 +23,7 @@ export default function RootLayout({
         <LocaleProvider>
           {children}
           <AutoLocalize />
+          <ReferralCapture />
         </LocaleProvider>
       </body>
     </html>

@@ -47,15 +47,6 @@ type SellerCard = {
   role?: string;
 };
 
-const mapPinSpots = [
-  { top: "18%", left: "24%" },
-  { top: "34%", left: "56%" },
-  { top: "14%", left: "72%" },
-  { top: "58%", left: "38%" },
-  { top: "46%", left: "84%" },
-  { top: "68%", left: "66%" },
-];
-
 type CartLine = {
   product: Product;
   quantity: number;
@@ -235,9 +226,29 @@ export default function Home() {
   }, [catalogProducts]);
   const locationFocus = (chosenCity || locatedCity || "").trim();
   const locationMatches = locationFocus ? nearbyCards.filter((vendor) => vendor.near) : nearbyCards;
-  const vendorCards = (locationMatches.length ? locationMatches : nearbyCards).slice(0, 6);
+  // Every seller stays on the strip — it scrolls sideways instead of growing tall.
+  const vendorCards = locationMatches.length ? locationMatches : nearbyCards;
   const locationEmpty = Boolean(locationFocus) && locationMatches.length === 0;
   const spotlightVendor = vendorCards[0];
+  // A real street map centred on the buyer: GPS when allowed, otherwise the chosen
+  // or detected city, then the nearest seller's place as a last resort.
+  const mapCenter = useMemo(() => {
+    if (myCoords) return myCoords;
+    const anchor = coordsForPlace(chosenCity || locatedCity || detectedCity || "", "") ??
+      coordsForPlace(spotlightVendor?.city ?? "", spotlightVendor?.region ?? "") ??
+      coordsForPlace("Lagos", "");
+    return anchor ?? { lat: 6.5244, lon: 3.3792 };
+  }, [myCoords, chosenCity, locatedCity, detectedCity, spotlightVendor]);
+  const mapEmbedUrl = useMemo(() => {
+    const span = 0.22;
+    const bbox = [
+      (mapCenter.lon - span).toFixed(4),
+      (mapCenter.lat - span).toFixed(4),
+      (mapCenter.lon + span).toFixed(4),
+      (mapCenter.lat + span).toFixed(4),
+    ].join(",");
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${mapCenter.lat.toFixed(5)},${mapCenter.lon.toFixed(5)}`;
+  }, [mapCenter]);
   const focusedVendor = nearbyCards.find((vendor) => vendor.id === nearbyFocus) ?? null;
   const focusedProducts = focusedVendor
     ? catalogProducts.filter((product) => product.sellerId === focusedVendor.id)
@@ -735,33 +746,33 @@ export default function Home() {
             <Link href="#hm-about">About Us</Link>
             <Link href="#hm-contact">Contact</Link>
           </nav>
+          <div className="hm-location-wrap">
+            <button
+              type="button"
+              className="hm-location"
+              aria-haspopup="listbox"
+              aria-expanded={locationMenuOpen}
+              onClick={() => setLocationMenuOpen((open) => !open)}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" stroke="currentColor" strokeWidth="1.8" />
+                <circle cx="12" cy="10" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+              </svg>
+              <span className="hm-location-text">{placeLabel}</span>
+              <span aria-hidden="true">⌄</span>
+            </button>
+            {locationMenuOpen && (
+              <div className="hm-location-menu" role="listbox" aria-label="Choose your delivery city">
+                <button type="button" role="option" aria-selected={!chosenCity} onClick={() => { chooseCity(""); void enableLocation(true); }}>
+                  Use my current location
+                </button>
+                {cityOptions.map((city) => (
+                  <button key={city} type="button" role="option" aria-selected={chosenCity === city} onClick={() => chooseCity(city)}>{city}</button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="hm-header-tools">
-            <div className="hm-location-wrap">
-              <button
-                type="button"
-                className="hm-location"
-                aria-haspopup="listbox"
-                aria-expanded={locationMenuOpen}
-                onClick={() => setLocationMenuOpen((open) => !open)}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" stroke="currentColor" strokeWidth="1.8" />
-                  <circle cx="12" cy="10" r="2.6" stroke="currentColor" strokeWidth="1.8" />
-                </svg>
-                {placeLabel}
-                <span aria-hidden="true">⌄</span>
-              </button>
-              {locationMenuOpen && (
-                <div className="hm-location-menu" role="listbox" aria-label="Choose your delivery city">
-                  <button type="button" role="option" aria-selected={!chosenCity} onClick={() => { chooseCity(""); void enableLocation(true); }}>
-                    Use my current location
-                  </button>
-                  {cityOptions.map((city) => (
-                    <button key={city} type="button" role="option" aria-selected={chosenCity === city} onClick={() => chooseCity(city)}>{city}</button>
-                  ))}
-                </div>
-              )}
-            </div>
             <Link className="hm-icon-button" href="/search" aria-label="Search products">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
@@ -954,23 +965,23 @@ export default function Home() {
             </p>
           </div>
           <div className="hm-map" aria-label="Map of sellers near you">
+            <iframe
+              key={mapEmbedUrl}
+              src={mapEmbedUrl}
+              title={`Map around ${locationFocus || locatedLabel || "your area"}`}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
             <span className="hm-map-you" aria-hidden="true"><i />You</span>
-            {mapPinSpots.map((pin, index) => {
-              const vendor = vendorCards[index];
-              return (
-                <button
-                  type="button"
-                  className="hm-map-pin"
-                  key={`${pin.top}-${pin.left}`}
-                  style={{ top: pin.top, left: pin.left, animationDelay: `${index * 90}ms` }}
-                  onClick={() => { if (vendor) focusNearby(vendor.id); }}
-                  aria-label={vendor ? `${vendor.name}, ${vendor.roleLabel}${vendor.distanceKm !== null ? `, ${formatDistance(vendor.distanceKm)}` : ""}` : "Nearby seller"}
-                  title={vendor?.name}
-                >
-                  <i>{index + 1}</i>
-                </button>
-              );
-            })}
+            <a
+              className="hm-map-link"
+              href={`https://www.openstreetmap.org/?mlat=${mapCenter.lat}&mlon=${mapCenter.lon}#map=12/${mapCenter.lat}/${mapCenter.lon}`}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Open map ↗
+            </a>
             {spotlightVendor && (
               <div className="hm-map-card">
                 <span className="hm-map-card-art" aria-hidden="true">
@@ -1130,6 +1141,7 @@ export default function Home() {
               <Link href="#hm-about">About Us</Link>
               <Link href="/pay-later">Pay later</Link>
               <Link href="/special-orders">Event orders</Link>
+              <Link href="/affiliate">Affiliates</Link>
               <Link href="#hm-contact">Contact</Link>
             </nav>
             <div className="hm-footer-social" aria-label="SureFood on social media">
@@ -1141,7 +1153,7 @@ export default function Home() {
           </div>
           <div className="hm-footer-bottom" id="hm-contact">
             <span>© {new Date().getFullYear()} SureFood. All rights reserved.</span>
-            <span><Link href="/signup?role=vendor">Sell on SureFood</Link><Link href="/signup?role=supplier">Supplier portal</Link></span>
+            <span><Link href="/signup?role=vendor">Sell on SureFood</Link><Link href="/signup?role=supplier">Supplier portal</Link><Link href="/affiliate">Affiliate programme</Link></span>
           </div>
         </div>
       </footer>

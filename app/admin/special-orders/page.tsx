@@ -131,6 +131,7 @@ export default function SpecialOrderQueuePage() {
           <Link href="/admin/pay-later">Pay Later</Link>
           <Link className="is-current" href="/admin/special-orders">Event orders</Link>
           <Link href="/admin/categories">Categories</Link>
+          <Link href="/admin/affiliates">Affiliates</Link>
         </nav>
       </header>
 

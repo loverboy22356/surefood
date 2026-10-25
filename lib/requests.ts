@@ -14,22 +14,45 @@ export function isPayLaterApplicantType(value: unknown): value is PayLaterApplic
   return payLaterApplicantTypes.includes(String(value) as PayLaterApplicantType);
 }
 
-export const payLaterDocumentTypes = ["business-registration", "employment-letter", "proof-of-income"] as const;
+export const payLaterDocumentTypes = [
+  "business-registration",
+  "employment-letter",
+  "proof-of-income",
+  "nin-slip",
+  "utility-bill",
+] as const;
 export type PayLaterDocumentType = (typeof payLaterDocumentTypes)[number];
 
 export const payLaterDocumentLabels: Record<PayLaterDocumentType, string> = {
   "business-registration": "Business registration certificate",
   "employment-letter": "Employment letter",
   "proof-of-income": "Proof of income",
+  "nin-slip": "NIN slip or NIN record",
+  "utility-bill": "NEPA / electricity bill",
+};
+
+export const payLaterDocumentHelp: Record<PayLaterDocumentType, string> = {
+  "business-registration": "Certificate showing your business name and number",
+  "employment-letter": "Letter from your employer confirming your role and staff number",
+  "proof-of-income": "Recent payslip, bank statement or sales records",
+  "nin-slip": "Your National Identification Number slip or national ID card showing the NIN",
+  "utility-bill": "Electricity (NEPA) bill in your name, dated in the last three months — it proves where you live",
 };
 
 export function isPayLaterDocumentType(value: unknown): value is PayLaterDocumentType {
   return payLaterDocumentTypes.includes(String(value) as PayLaterDocumentType);
 }
 
-/** Documents an applicant must provide before the application can be submitted. */
+/**
+ * Documents an applicant must provide before the application can be submitted.
+ * Everyone proves who they are (NIN) and where they live (electricity bill),
+ * then proves how they earn.
+ */
 export function requiredPayLaterDocuments(applicantType: PayLaterApplicantType): PayLaterDocumentType[] {
-  return applicantType === "business" ? ["business-registration"] : ["employment-letter"];
+  const identity: PayLaterDocumentType[] = ["nin-slip", "utility-bill"];
+  return applicantType === "business"
+    ? [...identity, "business-registration"]
+    : [...identity, "employment-letter"];
 }
 
 export const governmentLevels = ["federal", "state", "local"] as const;

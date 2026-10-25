@@ -120,6 +120,7 @@ export default function PayLaterQueuePage() {
           <Link className="is-current" href="/admin/pay-later">Pay Later</Link>
           <Link href="/admin/special-orders">Event orders</Link>
           <Link href="/admin/categories">Categories</Link>
+          <Link href="/admin/affiliates">Affiliates</Link>
         </nav>
       </header>
 

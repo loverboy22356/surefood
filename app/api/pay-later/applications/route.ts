@@ -7,6 +7,7 @@ import {
   isGovernmentLevel,
   isPayLaterApplicantType,
   isValidPhone,
+  payLaterDocumentLabels,
   payLaterDocumentTypes,
   requiredPayLaterDocuments,
   type PayLaterApplicantType,
@@ -153,9 +154,7 @@ export async function POST(request: Request) {
   const missingDocuments = requiredPayLaterDocuments(typedApplicantType).filter((documentType) => !documentPaths[documentType]);
   if (missingDocuments.length) {
     return jsonError(
-      typedApplicantType === "business"
-        ? "Upload your business registration certificate before applying."
-        : "Upload your employment letter before applying.",
+      `Upload ${missingDocuments.map((documentType) => payLaterDocumentLabels[documentType]).join(", ")} before applying.`,
       400,
     );
   }

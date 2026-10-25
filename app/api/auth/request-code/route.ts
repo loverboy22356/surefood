@@ -53,9 +53,12 @@ export async function POST(request: Request) {
         return jsonError("Staff accounts sign in through the SureFood admin portal.", 403);
       }
     } catch (error) {
+      // A missing account is fine — the code is still sent and verify-code rejects
+      // unknown emails. Any other lookup failure (a slow or unhappy Admin API) must
+      // not lock a real customer out of signing in: verify-code re-checks the role
+      // from the stored profile before issuing a session.
       if ((error as { code?: string }).code !== "auth/user-not-found") {
-        console.error("Could not check the sign-in account role.", error);
-        return jsonError("We could not check your account. Try again shortly.", 500);
+        console.error("Could not check the sign-in account role; continuing without it.", error);
       }
     }
   }

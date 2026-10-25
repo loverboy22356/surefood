@@ -9,6 +9,7 @@ import {
   governmentLevels,
   payLaterApplicantLabels,
   payLaterApplicantTypes,
+  payLaterDocumentHelp,
   payLaterDocumentLabels,
   payLaterDocumentTypes,
   requiredPayLaterDocuments,
@@ -441,7 +442,9 @@ export default function PayLaterPage() {
                     <fieldset className="service-fieldset">
                       <legend>Evidence</legend>
                       <p className="service-help" style={{ marginBottom: 10 }}>
-                        PDF, JPG or PNG up to 15 MB. Uploaded privately — only our review team can open it.
+                        Everyone proves who they are with a NIN slip and proves where they live with the NEPA (electricity) bill.
+                        The bill must carry the same address you entered above. PDF, JPG or PNG up to 15 MB — uploaded privately,
+                        only our review team can open it.
                       </p>
                       {payLaterDocumentTypes.map((documentType) => {
                         const required = requiredDocuments.includes(documentType);
@@ -450,7 +453,7 @@ export default function PayLaterPage() {
                           <div className="service-doc" key={documentType}>
                             <div>
                               <strong>{payLaterDocumentLabels[documentType]}{required ? "" : " (optional)"}</strong>
-                              <small>{documentType === "business-registration" ? "Certificate showing your business name and number" : documentType === "employment-letter" ? "Letter from your employer confirming your role and staff number" : "Recent payslip, bank statement or sales records"}</small>
+                              <small>{payLaterDocumentHelp[documentType]}</small>
                             </div>
                             <input
                               type="file"
@@ -525,6 +528,7 @@ export default function PayLaterPage() {
                     <li>Registered business name and number</li>
                     <li>Business address</li>
                     <li>Registration certificate</li>
+                    <li>NIN slip and NEPA bill</li>
                     <li>Evidence of income (recommended)</li>
                   </ul>
                 </div>
@@ -534,11 +538,12 @@ export default function PayLaterPage() {
                     <li>Employer and staff number</li>
                     <li>For government staff, the level of government</li>
                     <li>Employment letter</li>
+                    <li>NIN slip and NEPA bill</li>
                     <li>Evidence of income (recommended)</li>
                   </ul>
                 </div>
               </div>
-              <p className="pl-need-everyone"><strong>Everyone:</strong> a SureFood account, a phone number we can reach you on, and two referees with working phone numbers.</p>
+              <p className="pl-need-everyone"><strong>Everyone:</strong> a SureFood account, a NIN slip, a NEPA electricity bill in your name, a phone number we can reach you on, and two referees with working phone numbers.</p>
             </section>
 
             <section className="service-card">
