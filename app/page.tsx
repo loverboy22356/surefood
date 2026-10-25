@@ -1075,13 +1075,13 @@ export default function Home() {
 
         <section className="hm-promos" aria-label="Why shop with SureFood">
           <Link className="hm-promo" href="#hm-vendors" aria-label="Support local farmers — shop local">
-            <Image src="/images/promo-local-farmers.png" alt="Support local farmers: your purchase helps build stronger communities" fill sizes="(max-width: 720px) 100vw, 33vw" />
+            <Image src="/images/promo-local-farmers.png" alt="Support local farmers: your purchase helps build stronger communities" fill sizes="(max-width: 720px) 76vw, 33vw" />
           </Link>
           <Link className="hm-promo" href="#hm-products" aria-label="Seasonal picks — shop now">
-            <Image src="/images/promo-seasonal-picks.png" alt="Seasonal picks: fresh, natural and in season" fill sizes="(max-width: 720px) 100vw, 33vw" />
+            <Image src="/images/promo-seasonal-picks.png" alt="Seasonal picks: fresh, natural and in season" fill sizes="(max-width: 720px) 76vw, 33vw" />
           </Link>
           <Link className="hm-promo" href="#hm-about" aria-label="Quality you can trust — learn more">
-            <Image src="/images/promo-quality.png" alt="Quality you can trust: freshness, safety and real quality" fill sizes="(max-width: 720px) 100vw, 33vw" />
+            <Image src="/images/promo-quality.png" alt="Quality you can trust: freshness, safety and real quality" fill sizes="(max-width: 720px) 76vw, 33vw" />
           </Link>
         </section>
 

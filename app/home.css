@@ -1175,7 +1175,22 @@
   .hm-hero-trust { gap: 10px 16px; }
   .hm-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
   .hm-nearby { grid-template-columns: 1fr; }
-  .hm-promos { grid-template-columns: 1fr; }
+  /* Promo cards slide sideways on phones instead of stacking into a tall wall. */
+  .hm-promos {
+    display: flex;
+    grid-template-columns: none;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    scroll-padding-inline: 0;
+  }
+  .hm-promos::-webkit-scrollbar { display: none; }
+  .hm-promo { flex: 0 0 76%; scroll-snap-align: start; }
   .hm-location-menu { width: 190px; }
   .hm-section-head { flex-wrap: wrap; align-items: flex-start; }
   .hm-offer { flex-wrap: wrap; }
