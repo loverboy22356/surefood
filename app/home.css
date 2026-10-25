@@ -862,6 +862,63 @@
 
 /* ---------- partners ---------- */
 
+.hm-verified {
+  margin-top: clamp(26px, 3vw, 40px);
+}
+.hm-store-stack { display: grid; gap: 22px; }
+.hm-store-block {
+  padding: 16px;
+  border: 1px solid #ece4f8;
+  border-radius: 20px;
+  background: #fdfbff;
+}
+.hm-store-band {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0e8fb;
+}
+.hm-store-shield {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #f1e7ff;
+  font-size: 15px;
+}
+.hm-store-band > div { display: grid; min-width: 0; gap: 2px; }
+.hm-store-band strong { color: #3b1470; font-family: Manrope, sans-serif; font-size: 13.5px; font-weight: 800; }
+.hm-store-band small { overflow: hidden; color: var(--hm-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.hm-store-open {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #6018c8;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background .16s ease;
+}
+.hm-store-open:hover { background: #4c1d95; }
+.hm-verified-empty {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed #e2d6f7;
+  border-radius: 16px;
+  color: var(--hm-muted);
+  font-size: 11.5px;
+  text-align: center;
+}
+
 .hm-partners {
   margin-top: clamp(26px, 3vw, 40px);
   padding: 20px clamp(14px, 2vw, 26px);

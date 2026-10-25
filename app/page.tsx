@@ -77,6 +77,32 @@ const mapPins = [
 
 const partners = ["Olam", "farmcrowdy", "DANGOTE", "Nestlé", "Unilever", "PZ Cussons", "NIRSAL", "NNPC", "Flour Mills"];
 
+type VerifiedStore = {
+  sellerId: string;
+  name: string;
+  location: string;
+  products: Product[];
+};
+
+function groupVerifiedStores(products: Product[], role: string): VerifiedStore[] {
+  const groups = new Map<string, VerifiedStore>();
+  for (const product of products) {
+    if (product.sellerRole !== role || !product.sellerId || !product.sellerVerified) continue;
+    const existing = groups.get(product.sellerId);
+    if (existing) {
+      if (existing.products.length < 8) existing.products.push(product);
+      continue;
+    }
+    groups.set(product.sellerId, {
+      sellerId: product.sellerId,
+      name: product.sellerName || "SureFood seller",
+      location: [product.sellerCity, product.sellerRegion].filter(Boolean).join(", "),
+      products: [product],
+    });
+  }
+  return [...groups.values()];
+}
+
 const deliveryCities = ["Lagos", "Abuja", "Port Harcourt", "Ibadan", "Kano", "Enugu", "Benin City", "Kaduna"];
 
 export default function Home() {
@@ -117,6 +143,8 @@ export default function Home() {
     !selectedCategory || categoriesMatch(product.category, selectedCategory),
   );
   const featuredProducts = visibleProducts.slice(0, 10);
+  const verifiedSuppliers = useMemo(() => groupVerifiedStores(catalogProducts, "supplier"), [catalogProducts]);
+  const verifiedVendors = useMemo(() => groupVerifiedStores(catalogProducts, "vendor"), [catalogProducts]);
   const categoryStrip = useMemo(
     () => [...homeCategories, ...extraCategories.map((name) => ({ icon: "🏷", name, label: name }))],
     [extraCategories],
@@ -850,6 +878,32 @@ export default function Home() {
           </Link>
         </section>
 
+        <VerifiedStores
+          kicker="✔ Verified suppliers"
+          title="Verified suppliers"
+          copy="Approved, reviewed suppliers — shop their products or open the store they run."
+          roleLabel="supplier"
+          stores={verifiedSuppliers}
+          loading={catalogLoading}
+          savedIds={favouriteIds}
+          onAdd={addToCart}
+          onDetails={setSelectedProduct}
+          onToggleSave={toggleFavourite}
+        />
+
+        <VerifiedStores
+          kicker="✔ Verified vendors"
+          title="Verified vendors"
+          copy="Approved vendors near you with live listings — open their store to shop everything."
+          roleLabel="vendor"
+          stores={verifiedVendors}
+          loading={catalogLoading}
+          savedIds={favouriteIds}
+          onAdd={addToCart}
+          onDetails={setSelectedProduct}
+          onToggleSave={toggleFavourite}
+        />
+
         <section className="hm-partners" aria-label="Our trusted partners">
           <div className="hm-partners-head">
             <strong>Our Trusted Partners</strong>
@@ -951,6 +1005,79 @@ export default function Home() {
         </div>
       )}
     </main>
+  );
+}
+
+function VerifiedStores({
+  kicker,
+  title,
+  copy,
+  roleLabel,
+  stores,
+  loading,
+  savedIds,
+  onAdd,
+  onDetails,
+  onToggleSave,
+}: {
+  kicker: string;
+  title: string;
+  copy: string;
+  roleLabel: string;
+  stores: VerifiedStore[];
+  loading: boolean;
+  savedIds: Set<string>;
+  onAdd: (product: Product) => void;
+  onDetails: (product: Product) => void;
+  onToggleSave: (product: Product) => void;
+}) {
+  return (
+    <section className="hm-verified" aria-label={title}>
+      <div className="hm-section-head">
+        <div>
+          <span className="hm-kicker">{kicker}</span>
+          <h2>{title}</h2>
+          <p>{copy}</p>
+        </div>
+        <Link className="hm-view-all" href="/search">Browse all <span aria-hidden="true">→</span></Link>
+      </div>
+      {stores.length > 0 ? (
+        <div className="hm-store-stack">
+          {stores.map((store) => (
+            <div className="hm-store-block" key={store.sellerId}>
+              <div className="hm-store-band">
+                <span className="hm-store-shield" aria-hidden="true">🛡</span>
+                <div>
+                  <strong>Verified {roleLabel}</strong>
+                  <small>{store.name}{store.location ? ` · ${store.location}` : ""}</small>
+                </div>
+                <Link className="hm-store-open" href={`/store/${store.sellerId}`}>
+                  Open store <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+              <div className="hm-product-grid">
+                {store.products.map((product) => (
+                  <HomeProductCard
+                    key={product.id}
+                    product={product}
+                    saved={savedIds.has(product.id)}
+                    onAdd={onAdd}
+                    onDetails={onDetails}
+                    onToggleSave={onToggleSave}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="hm-verified-empty">
+          {loading
+            ? `Loading verified ${roleLabel}s…`
+            : `Verified ${roleLabel}s with live products will appear here.`}
+        </p>
+      )}
+    </section>
   );
 }
 
