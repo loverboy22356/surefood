@@ -43,6 +43,21 @@ export const productSourceLabels: Record<string, string> = {
   manufacturer: "Manufacturer",
 };
 
+/**
+ * Seller photos are stored on Cloudinary. Asking for a sharp rendition at the size
+ * it is actually drawn (instead of whatever was uploaded) keeps cards and the
+ * detail view crisp without shipping huge files.
+ */
+export function productImageUrl(url: string | undefined, width = 800) {
+  if (!url) return "";
+  const match = url.match(/^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.+)$/);
+  if (!match) return url;
+  const [, prefix, rest] = match;
+  // Only untouched uploads get a transformation; already-transformed URLs are kept.
+  if (!/^v\d+\//.test(rest)) return url;
+  return `${prefix}f_auto,q_auto:best,e_sharpen:60,dpr_auto,w_${width},c_limit/${rest}`;
+}
+
 export function formatMarketMoney(amountMinor: number, currencyCode = "USD") {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -80,7 +95,7 @@ export function ProductCard({
       <div className="product-art">
         <span className="product-tag">{product.tag}</span>
         {product.imageUrl
-          ? <Image src={product.imageUrl} alt={product.name} fill quality={90} sizes="(max-width: 700px) 45vw, (max-width: 1200px) 30vw, 240px" className="product-card-image" />
+          ? <Image src={productImageUrl(product.imageUrl, 700)} alt={product.name} fill quality={92} sizes="(max-width: 700px) 50vw, (max-width: 1200px) 33vw, 300px" className="product-card-image" />
           : <span className="product-emoji">{product.emoji}</span>}
         <button
           type="button"
@@ -155,7 +170,7 @@ export function ProductDetailsDialog({
         <button type="button" className="product-modal-close" aria-label="Close product details" onClick={onClose}>×</button>
         <div className="product-modal-media">
           {product.imageUrl
-            ? <Image src={product.imageUrl} alt={product.name} fill quality={90} sizes="(max-width: 900px) 100vw, 440px" className="product-modal-image" />
+            ? <Image src={productImageUrl(product.imageUrl, 1200)} alt={product.name} fill quality={92} sizes="(max-width: 900px) 100vw, 460px" className="product-modal-image" priority />
             : <span className="product-modal-emoji" aria-hidden="true">{product.emoji}</span>}
           {product.tag && <span className="product-modal-ribbon">👑 {product.tag}</span>}
         </div>

@@ -15,6 +15,7 @@ import {
   apiProductToListing,
   readFavourites,
   writeFavourites,
+  productImageUrl,
   sellerRoleLabels,
   type ApiProduct,
   type MarketplaceProduct as Product,
@@ -220,7 +221,22 @@ export default function Home() {
       return b.listings - a.listings;
     });
   }, [catalogProducts, topVendors, chosenCity, locatedCity, detectedCity, myCoords]);
-  const vendorCards = nearbyCards.slice(0, 6);
+  // Cities that actually have sellers come first, so "around me" is always selectable.
+  const cityOptions = useMemo(() => {
+    const seen = new Set(deliveryCities.map((city) => city.toLowerCase()));
+    const extras: string[] = [];
+    for (const product of catalogProducts) {
+      const city = (product.sellerCity || "").trim();
+      if (!city || seen.has(city.toLowerCase())) continue;
+      seen.add(city.toLowerCase());
+      extras.push(city);
+    }
+    return [...deliveryCities, ...extras.sort((a, b) => a.localeCompare(b))];
+  }, [catalogProducts]);
+  const locationFocus = (chosenCity || locatedCity || "").trim();
+  const locationMatches = locationFocus ? nearbyCards.filter((vendor) => vendor.near) : nearbyCards;
+  const vendorCards = (locationMatches.length ? locationMatches : nearbyCards).slice(0, 6);
+  const locationEmpty = Boolean(locationFocus) && locationMatches.length === 0;
   const spotlightVendor = vendorCards[0];
   const focusedVendor = nearbyCards.find((vendor) => vendor.id === nearbyFocus) ?? null;
   const focusedProducts = focusedVendor
@@ -274,9 +290,34 @@ export default function Home() {
   function chooseCity(city: string) {
     setChosenCity(city);
     setLocationMenuOpen(false);
-    window.localStorage.setItem("surefood-delivery-city", city);
-    if (city) setLocationNotice(`Showing approved sellers around ${city}.`);
-    else setLocationNotice("");
+    if (city) window.localStorage.setItem("surefood-delivery-city", city);
+    else window.localStorage.removeItem("surefood-delivery-city");
+    const key = city.trim().toLowerCase();
+    const match = key
+      ? catalogProducts.find((product) =>
+        [product.sellerCity, product.sellerRegion].filter(Boolean).join(" ").toLowerCase().includes(key),
+      )
+      : null;
+    setNearbyFocus(match?.sellerId ?? "");
+    setLocationNotice(city
+      ? match
+        ? `Showing every product sold in ${city}.`
+        : `No approved seller in ${city} yet. The closest sellers are listed below.`
+      : "");
+    window.setTimeout(() => {
+      document.getElementById("hm-vendors")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  }
+
+  /** The hero card and the panel's locate button both land here. */
+  function findNearbyVendors() {
+    document.getElementById("hm-vendors")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!myCoords) {
+      void enableLocation(true);
+      return;
+    }
+    const nearest = nearbyCards[0];
+    if (nearest) window.setTimeout(() => focusNearby(nearest.id), 220);
   }
 
   useEffect(() => {
@@ -443,7 +484,7 @@ export default function Home() {
     }, 30);
   }
 
-  async function enableLocation() {
+  async function enableLocation(autoOpen = false) {
     setLocationMenuOpen(false);
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setLocationNotice("This browser cannot share a location. Pick your city from the location button instead.");
@@ -461,7 +502,7 @@ export default function Home() {
         const fix = { lat: position.coords.latitude, lon: position.coords.longitude };
         setMyCoords(fix);
         window.localStorage.setItem("surefood-coords", JSON.stringify(fix));
-        void nameLocatedPlace(fix.lat, fix.lon);
+        void nameLocatedPlace(fix.lat, fix.lon, autoOpen);
       },
       () => {
         settled = true;
@@ -473,7 +514,7 @@ export default function Home() {
   }
 
   /** Turns a GPS fix into a place name, so the label never guesses a city. */
-  async function nameLocatedPlace(latitude: number, longitude: number) {
+  async function nameLocatedPlace(latitude: number, longitude: number, autoOpen = false) {
     setLocationNotice("Naming your location…");
     try {
       const response = await fetch(`/api/location?lat=${latitude}&lon=${longitude}`, {
@@ -495,6 +536,20 @@ export default function Home() {
       window.localStorage.removeItem("surefood-delivery-city");
       window.localStorage.setItem("surefood-current-location", label);
       if (city) window.localStorage.setItem("surefood-current-city", city);
+      const cityKey = (city || "").toLowerCase();
+      const match = cityKey
+        ? catalogProducts.find((product) =>
+          [product.sellerCity, product.sellerRegion].filter(Boolean).join(" ").toLowerCase().includes(cityKey),
+        )
+        : null;
+      if (match?.sellerId) {
+        setNearbyFocus(match.sellerId);
+        if (autoOpen) {
+          window.setTimeout(() => {
+            document.getElementById("hm-nearby-products")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 220);
+        }
+      }
       setLocationNotice(`Location on. Nearby sellers around ${city || label} are listed first.`);
     } catch (reason) {
       setLocationNotice(reason instanceof Error ? reason.message : "We could not name your location.");
@@ -698,10 +753,10 @@ export default function Home() {
               </button>
               {locationMenuOpen && (
                 <div className="hm-location-menu" role="listbox" aria-label="Choose your delivery city">
-                  <button type="button" role="option" aria-selected={!chosenCity} onClick={() => { chooseCity(""); enableLocation(); }}>
+                  <button type="button" role="option" aria-selected={!chosenCity} onClick={() => { chooseCity(""); void enableLocation(true); }}>
                     Use my current location
                   </button>
-                  {deliveryCities.map((city) => (
+                  {cityOptions.map((city) => (
                     <button key={city} type="button" role="option" aria-selected={chosenCity === city} onClick={() => chooseCity(city)}>{city}</button>
                   ))}
                 </div>
@@ -787,11 +842,11 @@ export default function Home() {
           </div>
         </div>
         <span className="hm-hero-script" aria-hidden="true">Good Food<br />Good Life</span>
-        <Link className="hm-hero-finder" href="#hm-vendors">
+        <button type="button" className="hm-hero-finder" onClick={findNearbyVendors}>
           <span className="hm-finder-pin" aria-hidden="true">📍</span>
           <span><strong>Find Nearby Vendors</strong><small>See trusted sellers near you</small></span>
           <b aria-hidden="true">→</b>
-        </Link>
+        </button>
       </section>
 
       <div className="hm-shell">
@@ -886,12 +941,12 @@ export default function Home() {
             <span className="hm-nearby-pin" aria-hidden="true">📍</span>
             <h2>Find vendors &amp; suppliers near you</h2>
             <p>Every approved vendor and supplier, nearest to your location first. Open one and its products appear right under that place.</p>
-            <button type="button" className="hm-nearby-action" onClick={enableLocation}>◎ Use my location</button>
+            <button type="button" className="hm-nearby-action" onClick={() => { void enableLocation(true); }}>◎ Use my location</button>
             <label className="hm-nearby-city">
               <span>Or pick where you are</span>
               <select value={chosenCity} onChange={(event) => chooseCity(event.target.value)}>
                 <option value="">Use my detected location</option>
-                {deliveryCities.map((city) => <option key={city} value={city}>{city}</option>)}
+                {cityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
               </select>
             </label>
             <p className="hm-nearby-note">
@@ -920,7 +975,7 @@ export default function Home() {
               <div className="hm-map-card">
                 <span className="hm-map-card-art" aria-hidden="true">
                   {spotlightVendor.imageUrl
-                    ? <Image src={spotlightVendor.imageUrl} alt="" fill quality={90} sizes="60px" />
+                    ? <Image src={productImageUrl(spotlightVendor.imageUrl, 160)} alt="" fill quality={92} sizes="60px" />
                     : spotlightVendor.emoji}
                 </span>
                 <div>
@@ -941,12 +996,20 @@ export default function Home() {
               <strong>Nearby vendors &amp; suppliers</strong>
               <Link href="/search">View All →</Link>
             </div>
+            <p className="hm-vendor-scope">
+              {locationFocus ? `Around ${locationFocus}` : locatedLabel ? `Nearest ${locatedLabel}` : "Nearest first"}
+            </p>
+            {locationEmpty && (
+              <p className="hm-vendor-empty" role="status">
+                No approved seller in {locationFocus} yet — showing the closest sellers instead.
+              </p>
+            )}
             <ul className="hm-vendor-list">
               {vendorCards.length > 0 ? vendorCards.map((vendor) => (
                 <li key={vendor.id}>
                   <button type="button" className="hm-vendor-row" onClick={() => focusNearby(vendor.id)}>
                     <span className="hm-vendor-art" aria-hidden="true">
-                      {vendor.imageUrl ? <Image src={vendor.imageUrl} alt="" fill quality={90} sizes="48px" /> : vendor.emoji}
+                      {vendor.imageUrl ? <Image src={productImageUrl(vendor.imageUrl, 160)} alt="" fill quality={92} sizes="48px" /> : vendor.emoji}
                     </span>
                     <div>
                       <strong>{vendor.name}</strong>
@@ -1253,7 +1316,7 @@ function HomeProductCard({
           onClick={(event) => { event.stopPropagation(); onToggleSave(product); }}
         >♥</button>
         {product.imageUrl
-          ? <Image src={product.imageUrl} alt={product.name} fill quality={92} sizes="(max-width: 640px) 46vw, (max-width: 1120px) 30vw, 300px" />
+          ? <Image src={productImageUrl(product.imageUrl, 700)} alt={product.name} fill quality={92} sizes="(max-width: 640px) 48vw, (max-width: 1120px) 32vw, 340px" />
           : <span className="hm-product-emoji" aria-hidden="true">{product.emoji}</span>}
       </div>
       <div className="hm-product-body">
