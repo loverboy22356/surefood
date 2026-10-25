@@ -4,6 +4,7 @@ import Link from "next/link";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
+import "../../requests.css";
 
 type Application = {
   uid: string;
@@ -165,7 +166,12 @@ export default function ManualVerificationPage() {
         <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
         <div><span>STAFF WORKSPACE</span><h1>Business verification</h1><p>Vendor applications are checked on proof of address and NIN only. Supplier applications without an automatic registry result also require staff to check the official registry.</p></div>
         {staff && <button type="button" onClick={() => user && void loadQueue(user)} disabled={loading}>{loading ? "Refreshing…" : "Refresh queue"}</button>}
-        {staff && <Link href="/admin/categories">Manage product categories →</Link>}
+        <nav className="admin-queue-nav">
+          <Link className="is-current" href="/admin/verification">Business verification</Link>
+          <Link href="/admin/pay-later">Pay Later</Link>
+          <Link href="/admin/special-orders">Event orders</Link>
+          <Link href="/admin/categories">Categories</Link>
+        </nav>
       </header>
       {error && <p className="manual-review-alert" role="alert">{error}</p>}
       {notice && <p className="manual-review-notice" role="status">{notice}</p>}

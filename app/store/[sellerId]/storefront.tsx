@@ -299,6 +299,25 @@ export function Storefront({ sellerId }: { sellerId: string }) {
           <div><span className="store-trust-icon">📦</span><span><strong>Products Available</strong><small>{products.length} live listing{products.length === 1 ? "" : "s"}</small></span></div>
         </div>
 
+        <section className="store-ways" aria-label={`Ways to buy from ${seller.name}`}>
+          <Link className="store-way" href="/pay-later">
+            <span className="store-way-icon" aria-hidden="true">🗓</span>
+            <span>
+              <strong>Buy now, pay later</strong>
+              <small>Take what you need from this store today and pay it back on a low-interest plan. No bank card.</small>
+              <b>See if you qualify →</b>
+            </span>
+          </Link>
+          <Link className="store-way" href="/special-orders">
+            <span className="store-way-icon" aria-hidden="true">🎉</span>
+            <span>
+              <strong>Special &amp; event orders</strong>
+              <small>Planning a wedding or event? Order ahead from this {roleLabel.toLowerCase()} and earn a planning discount.</small>
+              <b>Plan an event order →</b>
+            </span>
+          </Link>
+        </section>
+
         <section className="store-catalogue">
           <div className="store-catalogue-heading">
             <div><span className="section-kicker">SHOP THIS STORE</span><h2>Products from {seller.name}</h2></div>

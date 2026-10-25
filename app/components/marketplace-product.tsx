@@ -115,22 +115,38 @@ export function ProductCard({
   );
 }
 
+export function eventOrderHref(product: { name: string }, quantity: number) {
+  return `/special-orders?items=${encodeURIComponent(`${quantity} × ${product.name}`)}`;
+}
+
+export function payLaterHref(product: { name: string; price: number; currency?: string }, quantity: number) {
+  const params = new URLSearchParams({
+    product: product.name,
+    qty: String(quantity),
+    price: String(product.price),
+    currency: product.currency ?? "NGN",
+  });
+  return `/pay-later?${params.toString()}`;
+}
+
 export function ProductDetailsDialog({
   product,
   onClose,
   onAdd,
   saved = false,
   onToggleSave,
+  onEventOrder,
 }: {
   product: MarketplaceProduct;
   onClose: () => void;
   onAdd?: (product: MarketplaceProduct, quantity: number) => void;
   saved?: boolean;
   onToggleSave?: (product: MarketplaceProduct) => void;
+  onEventOrder?: (product: MarketplaceProduct, quantity: number) => void;
 }) {
   const [quantity, setQuantity] = useState(1);
   const roleLabel = sellerRoleLabels[product.sellerRole ?? ""] ?? "Seller";
-  const stock = product.stock ?? 0;
+  const maxQuantity = product.liveListing ? Math.max(1, product.stock ?? 0) : 99;
 
   return (
     <div className="product-modal-layer">
@@ -141,35 +157,82 @@ export function ProductDetailsDialog({
           {product.imageUrl
             ? <Image src={product.imageUrl} alt={product.name} fill quality={90} sizes="(max-width: 900px) 100vw, 440px" className="product-modal-image" />
             : <span className="product-modal-emoji" aria-hidden="true">{product.emoji}</span>}
-          <span className="product-modal-verified">✓ Verified {roleLabel}</span>
+          {product.tag && <span className="product-modal-ribbon">👑 {product.tag}</span>}
         </div>
         <div className="product-modal-body">
-          <div className="product-modal-heading">
-            <h2 id="product-details-heading">{product.name}</h2>
-            <span className={outOfStock(product) ? "product-stock-pill out" : "product-stock-pill"}>{outOfStock(product) ? "Out of stock" : "In Stock"}</span>
+          <div className="pm-seller-head">
+            <span className="pm-seller-mark" aria-hidden="true">🌿</span>
+            <span className="pm-seller-name">
+              <strong>{product.sellerName || "SureFood"}</strong>
+              {product.sellerVerified && <i aria-label="Verified">✔</i>}
+              <small>Quality products, always.</small>
+            </span>
+            <span className="pm-verified-pill">
+              🛡 {product.sellerVerified ? "Verified" : "Approved"} {roleLabel}
+            </span>
           </div>
-          <p className="product-modal-category">◈ {product.category}</p>
+          <h2 className="pm-product-name" id="product-details-heading">{product.name}</h2>
           <p className="product-modal-price">{formatMarketMoney(product.price, product.currency)} <small>per unit</small></p>
           <div className="product-modal-perks">
-            <div><span aria-hidden="true">🌿</span><strong>{product.sellerVerified ? "Verified seller" : "Approved listing"}</strong><small>Reviewed by SureFood</small></div>
-            <div><span aria-hidden="true">🚚</span><strong>Seller delivery</strong><small>Fee confirmed before you pay</small></div>
-            <div><span aria-hidden="true">🛡</span><strong>Protected order</strong><small>Secure checkout</small></div>
+            <div><span aria-hidden="true">🛡</span><strong>{product.sellerVerified ? `Verified ${roleLabel}` : "Approved listing"}</strong><small>Reviewed by SureFood</small></div>
+            <div><span aria-hidden="true">🚚</span><strong>Seller delivery</strong><small>Fast confirmed before you pay</small></div>
+            <div><span aria-hidden="true">🔒</span><strong>Protected order</strong><small>Secure checkout</small></div>
           </div>
-          <h3>Product Details</h3>
-          <p className="product-modal-description">{product.detail || "This seller has not added a description for this item yet."}</p>
-          <dl className="product-modal-specs">
-            <div><dt>Seller</dt><dd>{product.sellerName || "SureFood seller"}{product.sellerVerified && <span className="verified-seller-badge">Verified</span>}</dd></div>
-            <div><dt>Seller type</dt><dd>{roleLabel}</dd></div>
-            <div><dt>Location</dt><dd>{product.sellerLocation || "Location not provided"}</dd></div>
-            <div><dt>Product source</dt><dd>{productSourceLabels[product.productKind ?? ""] ?? "Supplier"}</dd></div>
-            {product.expiryDate && <div><dt>Expiry date</dt><dd>{product.expiryDate}</dd></div>}
-            {product.nafdacNumber && <div><dt>NAFDAC number</dt><dd>{product.nafdacNumber}</dd></div>}
-          </dl>
+          <div className="pm-details">
+            <h3>Product Details</h3>
+            <p>{product.detail || "This seller has not added a description for this item yet."}</p>
+            <dl className="product-modal-specs">
+              <div><dt>{roleLabel}</dt><dd>{product.sellerName || "SureFood seller"}{product.sellerVerified && <span className="verified-seller-badge">Verified {roleLabel.toLowerCase()}</span>}</dd></div>
+              <div><dt>Location</dt><dd>{product.sellerLocation || "Location not provided"}</dd></div>
+              <div><dt>Product source</dt><dd>{productSourceLabels[product.productKind ?? ""] ?? "Supplier"}</dd></div>
+              <div><dt>Category</dt><dd>{product.category}</dd></div>
+              {product.expiryDate && <div><dt>Expiry date</dt><dd>{product.expiryDate}</dd></div>}
+              {product.nafdacNumber && <div><dt>NAFDAC number</dt><dd>{product.nafdacNumber}</dd></div>}
+            </dl>
+          </div>
+          {product.sellerId && (
+            <div className="product-modal-store-bar">
+              <span className="pm-store-mark" aria-hidden="true">🏪</span>
+              <span className="pm-store-copy">
+                <b>Verified {roleLabel.toLowerCase()}</b>
+                <small>{product.sellerName || "SureFood seller"}{product.sellerLocation ? ` · ${product.sellerLocation}` : ""}</small>
+              </span>
+              <Link className="pm-store-button" href={`/store/${product.sellerId}`}>Open store →</Link>
+            </div>
+          )}
+          <div className="pm-choices">
+            <Link
+              className="pm-choice pay-later"
+              href={payLaterHref(product, quantity)}
+            >
+              <span className="pm-choice-icon" aria-hidden="true">🗓</span>
+              <span className="pm-choice-copy"><b>Pay Later</b><small>Buy now, pay later (up to 30 days)</small></span>
+              <i aria-hidden="true">›</i>
+            </Link>
+            {onEventOrder ? (
+              <button
+                type="button"
+                className="pm-choice special"
+                disabled={outOfStock(product)}
+                onClick={() => { onEventOrder(product, quantity); onClose(); }}
+              >
+                <span className="pm-choice-icon" aria-hidden="true">🎉</span>
+                <span className="pm-choice-copy"><b>Special Order</b><small>Custom quantity &amp; bulk order</small></span>
+                <i aria-hidden="true">›</i>
+              </button>
+            ) : (
+              <Link className="pm-choice special" href={eventOrderHref(product, quantity)}>
+                <span className="pm-choice-icon" aria-hidden="true">🎉</span>
+                <span className="pm-choice-copy"><b>Special Order</b><small>Custom quantity &amp; bulk order</small></span>
+                <i aria-hidden="true">›</i>
+              </Link>
+            )}
+          </div>
           <div className="product-modal-actions">
             <div className="product-modal-quantity" role="group" aria-label="Quantity">
               <button type="button" aria-label="Decrease quantity" disabled={quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>
               <span>{quantity}</span>
-              <button type="button" aria-label="Increase quantity" disabled={quantity >= stock} onClick={() => setQuantity((value) => Math.min(stock, value + 1))}>＋</button>
+              <button type="button" aria-label="Increase quantity" disabled={quantity >= maxQuantity} onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))}>＋</button>
             </div>
             <button
               type="button"
@@ -177,14 +240,13 @@ export function ProductDetailsDialog({
               disabled={outOfStock(product)}
               onClick={() => { onAdd?.(product, quantity); onClose(); }}
             >🛒 Add to Cart</button>
-            <button type="button" className="product-modal-wishlist" aria-pressed={saved} onClick={() => onToggleSave?.(product)}>{saved ? "♥ In Favourites" : "♡ Add to Favourites"}</button>
+            <button type="button" className="product-modal-wishlist" aria-pressed={saved} onClick={() => onToggleSave?.(product)}>{saved ? "♥ Add to Favourites" : "♡ Add to Favourites"}</button>
           </div>
+          <Link
+            className="product-modal-paylater"
+            href={payLaterHref(product, quantity)}
+          >⚡ Take this on Pay Later — buy now, pay later →</Link>
         </div>
-        {product.sellerId && (
-          <div className="product-modal-store-link">
-            <Link href={`/store/${product.sellerId}`}>See everything from {product.sellerName || "this seller"} →</Link>
-          </div>
-        )}
       </section>
     </div>
   );

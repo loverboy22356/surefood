@@ -4,41 +4,35 @@ import Image from "next/image";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
 import { useLocale } from "@/app/components/locale-provider";
 import {
   formatMarketMoney as formatMoney,
-  ProductCard,
   ProductDetailsDialog,
+  eventOrderHref,
   apiProductToListing,
-  type ApiProduct,
   readFavourites,
   writeFavourites,
+  type ApiProduct,
   type MarketplaceProduct as Product,
 } from "@/app/components/marketplace-product";
+import "./home.css";
 
-const categories: [string, string][] = [
-  ["🥬", "Fresh vegetables"],
-  ["🍎", "Fresh fruits"],
-  ["🥩", "Meat & seafood"],
-  ["🥛", "Dairy & eggs"],
-  ["🥖", "Bakery"],
-  ["🥫", "Pantry essentials"],
-  ["🧃", "Drinks"],
-  ["🍪", "Snacks & treats"],
-  ["🧊", "Frozen foods"],
-  ["🧴", "Home & kitchen"],
-  ["🧼", "Health & beauty"],
-  ["🍼", "Baby & kids"],
-  ["🐾", "Pet supplies"],
-  ["🧽", "Household essentials"],
+const homeCategories: { icon: string; name: string; label: string }[] = [
+  { icon: "🥬", name: "Fresh vegetables", label: "Vegetables" },
+  { icon: "🍎", name: "Fresh fruits", label: "Fruits" },
+  { icon: "🌾", name: "Grains & cereals", label: "Grains & Cereals" },
+  { icon: "🥔", name: "Tubers & roots", label: "Tubers & Roots" },
+  { icon: "🧄", name: "Spices & seasonings", label: "Spices & Seasonings" },
+  { icon: "🥚", name: "Dairy & eggs", label: "Dairy & Eggs" },
+  { icon: "🍗", name: "Meat & seafood", label: "Meat & Poultry" },
+  { icon: "🧺", name: "Pantry essentials", label: "Other Essentials" },
 ];
 
-type MarketplaceCard = {
+type SellerCard = {
   id: string;
-  role: "vendor" | "supplier" | "producer" | "manufacturer";
   name: string;
   detail: string;
   emoji: string;
@@ -59,25 +53,6 @@ type PlacedOrder = {
   currency: string;
 };
 
-function sourceSellerCards(products: Product[], kind: "producer" | "manufacturer"): MarketplaceCard[] {
-  const cards = new Map<string, MarketplaceCard>();
-  for (const product of products) {
-    if (product.productKind !== kind || !product.sellerId || cards.has(product.sellerId)) continue;
-    const count = products.filter((item) => item.productKind === kind && item.sellerId === product.sellerId).length;
-    cards.set(product.sellerId, {
-      id: product.sellerId,
-      role: kind,
-      name: product.sellerName || "SureFood seller",
-      detail: `${count} ${kind === "producer" ? "producer" : "manufactured"} listing${count === 1 ? "" : "s"}${product.sellerLocation ? ` · ${product.sellerLocation}` : ""}`,
-      emoji: kind === "producer" ? "🌱" : "🏭",
-      ...(product.imageUrl ? { imageUrl: product.imageUrl } : {}),
-      badge: kind === "producer" ? "Producer goods" : "Manufactured goods",
-      route: `/store/${product.sellerId}`,
-    });
-  }
-  return [...cards.values()];
-}
-
 function categoriesMatch(productCategory: string, selectedCategory: string) {
   const product = productCategory.toLowerCase().trim();
   const selected = selectedCategory.toLowerCase().trim();
@@ -86,17 +61,32 @@ function categoriesMatch(productCategory: string, selectedCategory: string) {
     product.replace(/^fresh /, "") === selected;
 }
 
+function initialsOf(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+const mapPins = [
+  { top: "18%", left: "24%" },
+  { top: "34%", left: "56%" },
+  { top: "14%", left: "72%" },
+  { top: "58%", left: "38%" },
+  { top: "46%", left: "84%" },
+];
+
+const partners = ["Olam", "farmcrowdy", "DANGOTE", "Nestlé", "Unilever", "PZ Cussons", "NIRSAL", "NNPC", "Flour Mills"];
+
+const deliveryCities = ["Lagos", "Abuja", "Port Harcourt", "Ibadan", "Kano", "Enugu", "Benin City", "Kaduna"];
+
 export default function Home() {
   const router = useRouter();
-  const { currency } = useLocale();
+  const { currency, country, detectedCity } = useLocale();
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
-  const [topVendors, setTopVendors] = useState<MarketplaceCard[]>([]);
-  const [topSuppliers, setTopSuppliers] = useState<MarketplaceCard[]>([]);
-  const [topProducers, setTopProducers] = useState<MarketplaceCard[]>([]);
-  const [topManufacturers, setTopManufacturers] = useState<MarketplaceCard[]>([]);
+  const [topVendors, setTopVendors] = useState<SellerCard[]>([]);
   const [catalogError, setCatalogError] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [productSearch, setProductSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [favourites, setFavourites] = useState<Product[]>([]);
@@ -115,22 +105,86 @@ export default function Home() {
   const [buyerOrderNotice, setBuyerOrderNotice] = useState("");
   const [cartNotice, setCartNotice] = useState("");
   const [orderNotice, setOrderNotice] = useState("");
-  const [showAllCategories, setShowAllCategories] = useState(false);
-  const [categoriesOpen, setCategoriesOpen] = useState(true);
+  const [locationNotice, setLocationNotice] = useState("");
+  const [chosenCity, setChosenCity] = useState("");
+  const [locatedLabel, setLocatedLabel] = useState("");
+  const [locationMenuOpen, setLocationMenuOpen] = useState(false);
   const itemCount = cart.reduce((total, line) => total + line.quantity, 0);
   const subtotal = cart.reduce((total, line) => total + line.product.price * line.quantity, 0);
   const cartCurrency = cart[0]?.product.currency ?? "NGN";
-  const categoryList = useMemo(() => {
-    const defaults = categories.map(([icon, name]) => ({ icon, name }));
-    return [...defaults, ...extraCategories.map((name) => ({ icon: "🏷", name }))];
-  }, [extraCategories]);
   const favouriteIds = useMemo(() => new Set(favourites.map((item) => item.id)), [favourites]);
   const visibleProducts = catalogProducts.filter((product) =>
-    (!selectedCategory || categoriesMatch(product.category, selectedCategory)) &&
-    (!productSearch.trim() || `${product.name} ${product.detail} ${product.category}`.toLowerCase().includes(productSearch.trim().toLowerCase())),
+    !selectedCategory || categoriesMatch(product.category, selectedCategory),
   );
-  const storefrontDeals = visibleProducts.filter((product) => product.oldPrice !== undefined && product.oldPrice > product.price);
-  const storefrontLimited = visibleProducts.filter((product) => (product.stock ?? 0) > 0 && (product.stock ?? 0) <= 10);
+  const featuredProducts = visibleProducts.slice(0, 10);
+  const categoryStrip = useMemo(
+    () => [...homeCategories, ...extraCategories.map((name) => ({ icon: "🏷", name, label: name }))],
+    [extraCategories],
+  );
+  const maxDiscount = useMemo(() => {
+    let best = 0;
+    for (const product of catalogProducts) {
+      if (product.oldPrice && product.oldPrice > product.price) {
+        best = Math.max(best, Math.round((1 - product.price / product.oldPrice) * 100));
+      }
+    }
+    return best;
+  }, [catalogProducts]);
+  const productSellers = useMemo(() => {
+    const sellers = new Map<string, SellerCard>();
+    for (const product of catalogProducts) {
+      if (!product.sellerId || sellers.has(product.sellerId)) continue;
+      sellers.set(product.sellerId, {
+        id: product.sellerId,
+        name: product.sellerName || "SureFood seller",
+        detail: [product.sellerCity || product.sellerLocation, product.sellerRole ? `${product.sellerRole[0].toUpperCase()}${product.sellerRole.slice(1)}` : ""].filter(Boolean).join(" · ") || product.category,
+        emoji: "🏪",
+        ...(product.imageUrl ? { imageUrl: product.imageUrl } : {}),
+        badge: "Approved seller",
+        route: `/store/${product.sellerId}`,
+      });
+    }
+    return [...sellers.values()];
+  }, [catalogProducts]);
+  const nearbySellers = topVendors.length > 0 ? topVendors : productSellers;
+  const vendorCards = useMemo(() => nearbySellers.slice(0, 5).map((vendor) => {
+    const listings = catalogProducts.filter((product) => product.sellerId === vendor.id);
+    const cheapest = listings.reduce<Product | null>(
+      (current, product) => (!current || product.price < current.price ? product : current),
+      null,
+    );
+    return {
+      ...vendor,
+      listings: listings.length,
+      fromPrice: cheapest ? cheapest.price : null,
+      currency: cheapest?.currency ?? "NGN",
+    };
+  }), [nearbySellers, catalogProducts]);
+  const spotlightVendor = vendorCards[0];
+  const accountInitials = initialsOf(accountName);
+  const countryName = useMemo(() => {
+    if (!country) return "";
+    try {
+      return new Intl.DisplayNames(["en"], { type: "region" }).of(country.toUpperCase()) ?? country;
+    } catch {
+      return country;
+    }
+  }, [country]);
+  const placeLabel = chosenCity || locatedLabel || countryName || "Set your location";
+
+  useEffect(() => {
+    setChosenCity(window.localStorage.getItem("surefood-delivery-city") ?? "");
+    const savedLocation = window.localStorage.getItem("surefood-current-location");
+    if (savedLocation) setLocatedLabel(savedLocation);
+  }, []);
+
+  function chooseCity(city: string) {
+    setChosenCity(city);
+    setLocationMenuOpen(false);
+    window.localStorage.setItem("surefood-delivery-city", city);
+    if (city) setLocationNotice(`Showing approved sellers around ${city}.`);
+    else setLocationNotice("");
+  }
 
   useEffect(() => {
     try {
@@ -249,7 +303,7 @@ export default function Home() {
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok || !Array.isArray(result.categories)) return;
-        const defaults = new Set(categories.map(([, name]) => name.toLowerCase()));
+        const defaults = new Set(homeCategories.map((category) => category.name.toLowerCase()));
         setExtraCategories((result.categories as string[]).filter((name) => !defaults.has(name.toLowerCase())));
       })
       .catch((reason: unknown) => console.error("Could not load the extra product categories.", reason));
@@ -258,11 +312,7 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     async function loadCatalog() {
-      const routes = [
-        "/api/products",
-        "/api/marketplace/sellers?role=vendor",
-        "/api/marketplace/sellers?role=supplier",
-      ];
+      const routes = ["/api/products", "/api/marketplace/sellers?role=vendor"];
       const results = await Promise.allSettled(routes.map(async (route) => {
         const response = await fetch(route, { signal: AbortSignal.timeout(15_000) });
         const data = await response.json();
@@ -274,23 +324,17 @@ export default function Home() {
       const errors: string[] = [];
       const productResult = results[0];
       if (productResult.status === "fulfilled" && Array.isArray(productResult.value.products)) {
-        const listings = (productResult.value.products as ApiProduct[]).map(apiProductToListing);
-        setCatalogProducts(listings);
-        setTopProducers(sourceSellerCards(listings, "producer"));
-        setTopManufacturers(sourceSellerCards(listings, "manufacturer"));
+        setCatalogProducts((productResult.value.products as ApiProduct[]).map(apiProductToListing));
       } else {
         errors.push(productResult.status === "rejected" ? productResult.reason.message : "Live products returned an invalid response.");
       }
 
-      const sellerSetters = [setTopVendors, setTopSuppliers];
-      const roleNames = ["vendors", "suppliers"];
-      results.slice(1).forEach((result, index) => {
-        if (result.status === "fulfilled" && Array.isArray(result.value.sellers)) {
-          sellerSetters[index](result.value.sellers as MarketplaceCard[]);
-        } else {
-          errors.push(result.status === "rejected" ? result.reason.message : `Approved ${roleNames[index]} returned an invalid response.`);
-        }
-      });
+      const vendorResult = results[1];
+      if (vendorResult.status === "fulfilled" && Array.isArray(vendorResult.value.sellers)) {
+        setTopVendors(vendorResult.value.sellers as SellerCard[]);
+      } else {
+        errors.push(vendorResult.status === "rejected" ? vendorResult.reason.message : "Approved vendors returned an invalid response.");
+      }
 
       setCatalogError(errors.join(" "));
       setCatalogLoading(false);
@@ -299,8 +343,64 @@ export default function Home() {
     return () => { active = false; };
   }, []);
 
-  function openProductDetails(product: Product) {
-    setSelectedProduct(product);
+  function selectCategory(name: string) {
+    setSelectedCategory((current) => current === name ? "" : name);
+    window.setTimeout(() => {
+      document.getElementById("hm-products")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 30);
+  }
+
+  async function enableLocation() {
+    setLocationMenuOpen(false);
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationNotice("This browser cannot share a location. Pick your city from the location button instead.");
+      return;
+    }
+    setLocationNotice("Finding your location…");
+    let settled = false;
+    const guard = window.setTimeout(() => {
+      if (!settled) setLocationNotice("Your browser is still asking for location. Allow it, or pick your city from the location button.");
+    }, 12_000);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        settled = true;
+        window.clearTimeout(guard);
+        void nameLocatedPlace(position.coords.latitude, position.coords.longitude);
+      },
+      () => {
+        settled = true;
+        window.clearTimeout(guard);
+        setLocationNotice("Location permission was declined or blocked. Pick your city from the location button instead.");
+      },
+      { enableHighAccuracy: false, timeout: 12_000, maximumAge: 300_000 },
+    );
+  }
+
+  /** Turns a GPS fix into a place name, so the label never guesses a city. */
+  async function nameLocatedPlace(latitude: number, longitude: number) {
+    setLocationNotice("Naming your location…");
+    try {
+      const response = await fetch(`/api/location?lat=${latitude}&lon=${longitude}`, {
+        signal: AbortSignal.timeout(12_000),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "We could not name your location.");
+      const city = typeof result.city === "string" && result.city
+        ? result.city
+        : typeof result.region === "string" ? result.region : "";
+      const countryName = typeof result.country === "string" && result.country
+        ? new Intl.DisplayNames(["en"], { type: "region" }).of(result.country) ?? ""
+        : "";
+      const label = [city, countryName].filter(Boolean).join(", ");
+      if (!label) throw new Error("We could not name your location.");
+      setLocatedLabel(label);
+      setChosenCity("");
+      window.localStorage.removeItem("surefood-delivery-city");
+      window.localStorage.setItem("surefood-current-location", label);
+      setLocationNotice(`Location on. Showing approved sellers around ${city || label}.`);
+    } catch (reason) {
+      setLocationNotice(reason instanceof Error ? reason.message : "We could not name your location.");
+    }
   }
 
   function toggleFavourite(product: Product) {
@@ -365,14 +465,9 @@ export default function Home() {
 
   function changeQuantity(productId: string, amount: number) {
     rotateCheckoutId();
-    setCart((currentCart) => {
-      const nextCart = currentCart
-        .map((line) =>
-          line.product.id === productId ? { ...line, quantity: line.quantity + amount } : line,
-        )
-        .filter((line) => line.quantity > 0);
-      return nextCart;
-    });
+    setCart((currentCart) => currentCart
+      .map((line) => line.product.id === productId ? { ...line, quantity: line.quantity + amount } : line)
+      .filter((line) => line.quantity > 0));
     setCheckoutNotice("");
     setCartNotice("");
   }
@@ -465,162 +560,342 @@ export default function Home() {
   }
 
   return (
-    <main className="shop" data-local-currency>
-      <div className="announcement">
-        <span>Good food, delivered fresh.</span>
-        <span className="announcement-right">Fresh picks from approved local sellers</span>
-      </div>
-      <header className="site-header">
-        <Link className="brand" href="/" aria-label="SureFood home">
-          <span className="brand-mark">s</span>
-          <span>sure<span>food</span></span>
-        </Link>
-        <form
-          className="search-box"
-          role="search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const term = productSearch.trim();
-            router.push(term ? `/search?q=${encodeURIComponent(term)}` : "/search");
-          }}
-        >
-          <span aria-hidden="true">⌕</span>
-          <input type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Search products, suppliers, or categories..." aria-label="Search products" />
-          <button type="submit" className="search-submit" aria-label="Search">Search</button>
-        </form>
-        <nav className="header-actions" aria-label="Main navigation">
-          <Link href={buyerAccount === "guest" ? "/login" : "/account"} className="header-action account-header-action">
-            <span className="action-icon">♙</span>
-            <span>
-              <small>{buyerAccount === "guest" ? "Welcome" : "Your profile"}</small>
-              <strong>{buyerAccount === "guest" ? "Sign in" : accountName || "My account"}</strong>
+    <main className="shop-home" data-local-currency>
+      <header className="hm-header">
+        <div className="hm-shell hm-header-inner">
+          <Link className="hm-brand" href="/" aria-label="SureFood home">
+            <span className="hm-brand-mark" aria-hidden="true">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                <path d="M20 3.5C10.6 3.9 4.6 8.6 4.6 16.2c0 1.9.5 3.3.5 3.3 2.6-6.1 7.3-9.9 13-11.4-5 2.3-8.8 6-11.2 11.6 7.6 1 11.9-4 12.6-15.2Z" fill="currentColor" />
+              </svg>
+            </span>
+            <span className="hm-brand-text">
+              <strong>SureFood</strong>
+              <small>Fresh Food · Better Life</small>
             </span>
           </Link>
-          <Link href="/favorites" className="header-action favourites-action">
-            <span className="action-icon favourite-icon">♥</span>
-            <span><small>Favourites</small><strong>{favourites.length ? `${favourites.length} saved` : "Nothing saved"}</strong></span>
-          </Link>
-          <button type="button" className="header-action cart-action" aria-label={`Your cart, ${itemCount} items`} aria-expanded={cartOpen} onClick={() => setCartOpen(true)}>
-            <span className="cart-icon">♧<i>{itemCount}</i></span>
-            <span><small>Your cart</small><strong>{formatMoney(subtotal, cartCurrency)}</strong></span>
-          </button>
-        </nav>
-      </header>
-
-      <nav className="category-nav" aria-label="Shop departments">
-        <Link href="#categories">Shop all</Link>
-        <Link href="#fresh">Fresh food</Link>
-        <Link href="#deals">Weekly deals</Link>
-        <Link href="#local">Local favourites</Link>
-        <Link href="#about">Our story</Link>
-        <Link href="/signup?role=vendor" className="supplier-nav-link">Vendor portal</Link>
-        <Link href="/signup?role=supplier" className="supplier-nav-link">Supplier portal</Link>
-        <span className="nav-promo">Fresh picks, happy plates <span>→</span></span>
-      </nav>
-
-      <div className="page-content">
-        {orderNotice && <div className="buyer-order-notice" role="status">{orderNotice}<Link href="/account?orders=1">View your orders →</Link><button type="button" aria-label="Dismiss order confirmation" onClick={() => setOrderNotice("")}>×</button></div>}
-        {buyerOrderNotice && <div className="buyer-order-notice" role="status">{buyerOrderNotice}<Link href="/account?orders=1">Review and pay →</Link><button type="button" aria-label="Dismiss order notification" onClick={() => setBuyerOrderNotice("")}>×</button></div>}
-        <div className="breadcrumbs"><span>Home</span><b>›</b><span>Groceries</span></div>
-        <div className="home-grid">
-          <aside className="categories-panel" id="categories">
-            <div className="panel-heading"><h2>Shop by category</h2><button type="button" aria-label={categoriesOpen ? "Collapse categories" : "Expand categories"} aria-expanded={categoriesOpen} onClick={() => setCategoriesOpen((open) => !open)}>{categoriesOpen ? "−" : "+"}</button></div>
-            {categoriesOpen && (
-              <>
-                <ul className={showAllCategories ? "expanded" : ""}>
-                  {categoryList.slice(0, showAllCategories ? categoryList.length : 8).map(({ icon, name }) => (
-                    <li key={name} className={selectedCategory === name ? "category-selected" : ""}>
-                      <Link href="#fresh" onClick={() => setSelectedCategory((current) => current === name ? "" : name)}><span className="category-emoji">{icon}</span><span>{name}</span><span className="category-arrow">›</span></Link>
-                    </li>
+          <nav className="hm-nav" aria-label="Main navigation">
+            <Link href="/" className="is-active">Home</Link>
+            <Link href="/search">Shop</Link>
+            <Link href="/signup?role=supplier">Suppliers</Link>
+            <Link href="#hm-categories">Categories</Link>
+            <Link href="#hm-about">About Us</Link>
+            <Link href="#hm-contact">Contact</Link>
+          </nav>
+          <div className="hm-header-tools">
+            <div className="hm-location-wrap">
+              <button
+                type="button"
+                className="hm-location"
+                aria-haspopup="listbox"
+                aria-expanded={locationMenuOpen}
+                onClick={() => setLocationMenuOpen((open) => !open)}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="12" cy="10" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+                </svg>
+                {placeLabel}
+                <span aria-hidden="true">⌄</span>
+              </button>
+              {locationMenuOpen && (
+                <div className="hm-location-menu" role="listbox" aria-label="Choose your delivery city">
+                  <button type="button" role="option" aria-selected={!chosenCity} onClick={() => { chooseCity(""); enableLocation(); }}>
+                    Use my current location
+                  </button>
+                  {deliveryCities.map((city) => (
+                    <button key={city} type="button" role="option" aria-selected={chosenCity === city} onClick={() => chooseCity(city)}>{city}</button>
                   ))}
-                </ul>
-                <button type="button" className="all-categories" aria-expanded={showAllCategories} onClick={() => setShowAllCategories((show) => !show)}>{showAllCategories ? "Show fewer categories" : "View all categories"} <span>{showAllCategories ? "↑" : "→"}</span></button>
-              </>
-            )}
-            <div className="help-card"><span className="help-icon">♡</span><strong>Need a hand?</strong><p>We&apos;re here to help you find the good stuff.</p><Link href="#about">Talk to our team →</Link></div>
-          </aside>
-
-          <div className="home-main">
-            <section className="hero-banner" aria-label="Fresh food, made simple">
-              <Image src="/images/home-hero.png" alt="SureFood fresh food banner" fill preload sizes="(max-width: 700px) 100vw, 75vw" className="hero-image" />
-            </section>
-
-            <div className="service-strip">
-              <div><span className="service-icon">♧</span><span><strong>Fresh, always</strong><small>Picked at its best</small></span></div>
-              <div><span className="service-icon">↗</span><span><strong>On your doorstep</strong><small>Fast, careful delivery</small></span></div>
-              <div><span className="service-icon">♡</span><span><strong>Good for everyone</strong><small>Better food, better days</small></span></div>
+                </div>
+              )}
             </div>
-            <PromoRail />
+            <Link className="hm-icon-button" href="/search" aria-label="Search products">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+                <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </Link>
+            <Link className="hm-icon-button" href="/favorites" aria-label={`Favourites, ${favourites.length} saved`}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 20s-7.5-4.4-7.5-9.4A4.1 4.1 0 0 1 12 7.6a4.1 4.1 0 0 1 7.5 3C19.5 15.6 12 20 12 20Z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
+              </svg>
+              {favourites.length > 0 && <i>{favourites.length}</i>}
+            </Link>
+            <button type="button" className="hm-icon-button" aria-label={`Your cart, ${itemCount} items`} onClick={() => setCartOpen(true)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 4h2l2.4 11.2h10.8L20 7H6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="9.5" cy="19" r="1.5" fill="currentColor" />
+                <circle cx="17" cy="19" r="1.5" fill="currentColor" />
+              </svg>
+              {itemCount > 0 && <i>{itemCount}</i>}
+            </button>
+            <Link
+              className="hm-avatar"
+              href={buyerAccount === "guest" ? "/login" : "/account"}
+              aria-label={buyerAccount === "guest" ? "Sign in to SureFood" : `Your account, ${accountName || "buyer"}`}
+            >
+              {buyerAccount === "guest" || !accountInitials ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.9" />
+                  <path d="M5 20c.8-3.5 3.6-5.4 7-5.4s6.2 1.9 7 5.4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                </svg>
+              ) : accountInitials}
+            </Link>
           </div>
         </div>
-        {catalogError && <p className="catalog-status" role="alert">{catalogError}</p>}
-        <div className="store-sections">
-          <MarketplaceSection
-            id="fresh"
-            title="Good things, in season"
-            eyebrow="A LITTLE SOMETHING FRESH"
-            actionLabel="See all fresh"
-            products={visibleProducts}
-            onAdd={addToCart}
-            onDetails={openProductDetails}
-            savedIds={favouriteIds}
-            onToggleSave={toggleFavourite}
-            emptyMessage={catalogLoading ? "Loading live products…" : "No active products are listed yet."}
-          />
-          <MarketplaceSection
-            id="flash-sales"
-            title="Fresh food flash deals"
-            eyebrow="LIVE SELLER DISCOUNTS"
-            actionLabel="See all discounts"
-            products={storefrontDeals}
-            onAdd={addToCart}
-            onDetails={openProductDetails}
-            savedIds={favouriteIds}
-            onToggleSave={toggleFavourite}
-            variant="flash"
-            emptyMessage={catalogLoading ? "Loading current deals…" : "There are no discounted products right now."}
-          />
-          <MarketplaceSection
-            id="top-vendors"
-            title="Approved vendors"
-            eyebrow="BUSINESSES REVIEWED BY SUREFOOD"
-            actionLabel="See all vendors"
-            cards={topVendors}
-            variant="feature"
-            emptyMessage={catalogLoading ? "Loading approved vendors…" : "No approved vendors are listed yet."}
-          />
-          <LimitedStockSection products={storefrontLimited} onAdd={addToCart} onDetails={openProductDetails} savedIds={favouriteIds} onToggleSave={toggleFavourite} emptyMessage={catalogLoading ? "Loading limited-stock products…" : "No products have limited stock right now."} />
-          <MarketplaceSection
-            id="top-suppliers"
-            title="Approved suppliers"
-            eyebrow="BUSINESSES REVIEWED BY SUREFOOD"
-            actionLabel="See all suppliers"
-            cards={topSuppliers}
-            variant="feature"
-            emptyMessage={catalogLoading ? "Loading approved suppliers…" : "No approved suppliers are listed yet."}
-          />
-          <MarketplaceSection
-            id="top-producers"
-            title="Producers & growers"
-            eyebrow="GROWN WITH CARE"
-            actionLabel="See all producers"
-            cards={topProducers}
-            variant="feature"
-            emptyMessage={catalogLoading ? "Loading producer sellers…" : "Sellers with producer-sourced products will appear here."}
-          />
-          <MarketplaceSection
-            id="top-manufacturers"
-            title="Manufacturers & makers"
-            eyebrow="MADE LOCALLY, MADE WELL"
-            actionLabel="See all manufacturers"
-            cards={topManufacturers}
-            variant="feature"
-            emptyMessage={catalogLoading ? "Loading manufacturer sellers…" : "Sellers with manufactured products will appear here."}
-          />
-          <div className="lower-promo" id="deals"><span>GOOD FOOD, GOOD MOOD</span><strong>Something lovely is always in season.</strong><Link href="#flash-sales">See this week&apos;s picks →</Link></div>
+      </header>
+
+      <section className="hm-hero" aria-label="Fresh food for a healthier you">
+        <Image
+          src="/images/home-produce.png"
+          alt="A basket of fresh vegetables and fruit"
+          fill
+          loading="eager"
+          fetchPriority="high"
+          sizes="100vw"
+          className="hm-hero-image"
+        />
+        <div className="hm-hero-inner">
+          <div className="hm-shell">
+            <div className="hm-hero-copy">
+              <span className="hm-hero-eyebrow">FARM FRESH · LOCAL · TRUSTED</span>
+              <h1>Fresh Food<br />for a <span>Healthier You</span></h1>
+              <p>Quality fruits, vegetables, grains and more from trusted local farmers and suppliers.</p>
+              <form
+                className="hm-hero-search"
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const term = searchTerm.trim();
+                  router.push(term ? `/search?q=${encodeURIComponent(term)}` : "/search");
+                }}
+              >
+                <span aria-hidden="true">⌕</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search for fresh products, suppliers or categories…"
+                  aria-label="Search for fresh products"
+                />
+                <button type="submit">Search</button>
+              </form>
+              <ul className="hm-hero-trust">
+                <li><span className="hm-trust-icon" aria-hidden="true">📍</span><span><strong>Track Nearby Vendors</strong><small>Find trusted sellers near you</small></span></li>
+                <li><span className="hm-trust-icon" aria-hidden="true">🛡</span><span><strong>Secure Payments</strong><small>Pay with confidence</small></span></li>
+                <li><span className="hm-trust-icon" aria-hidden="true">🌿</span><span><strong>Fresh &amp; Quality</strong><small>Farm to your table</small></span></li>
+              </ul>
+            </div>
+          </div>
         </div>
+        <span className="hm-hero-script" aria-hidden="true">Good Food<br />Good Life</span>
+        <Link className="hm-hero-finder" href="#hm-vendors">
+          <span className="hm-finder-pin" aria-hidden="true">📍</span>
+          <span><strong>Find Nearby Vendors</strong><small>See trusted sellers near you</small></span>
+          <b aria-hidden="true">→</b>
+        </Link>
+      </section>
+
+      <div className="hm-shell">
+        <section className="hm-categories" id="hm-categories" aria-label="Shop by category">
+          <div className="hm-cat-head">Shop by Category <span aria-hidden="true">→</span></div>
+          {categoryStrip.map((category) => (
+            <button
+              key={category.name}
+              type="button"
+              className={selectedCategory === category.name ? "hm-cat is-selected" : "hm-cat"}
+              aria-pressed={selectedCategory === category.name}
+              onClick={() => selectCategory(category.name)}
+            >
+              <span className="hm-cat-icon" aria-hidden="true">{category.icon}</span>
+              {category.label}
+            </button>
+          ))}
+        </section>
+
+        <section className="hm-offer" aria-label="This season's offer">
+          <div className="hm-offer-art" aria-hidden="true">
+            <Image src="/images/store-banner.jpg" alt="" fill sizes="(max-width: 720px) 100vw, 620px" className="hm-offer-image" />
+          </div>
+          <div className="hm-offer-copy">
+            <span className="hm-offer-pill">SPECIAL OFFER</span>
+            <h2>Premium staples, farm-fresh prices</h2>
+            <p>Rice, grains and everyday essentials hand-picked from approved local sellers.</p>
+            <Link className="hm-offer-cta" href="#hm-products">Shop Now <span aria-hidden="true">→</span></Link>
+          </div>
+          <span className="hm-offer-badge">
+            {maxDiscount > 0 ? <>Up to<strong>{maxDiscount}%</strong>off</> : <>Farm<strong>Fresh</strong>daily</>}
+          </span>
+        </section>
+
+        {orderNotice && (
+          <div className="buyer-order-notice" role="status">
+            {orderNotice}
+            <Link href="/account?orders=1">View your orders →</Link>
+            <button type="button" aria-label="Dismiss order confirmation" onClick={() => setOrderNotice("")}>×</button>
+          </div>
+        )}
+        {buyerOrderNotice && (
+          <div className="buyer-order-notice" role="status">
+            {buyerOrderNotice}
+            <Link href="/account?orders=1">Review and pay →</Link>
+            <button type="button" aria-label="Dismiss order notification" onClick={() => setBuyerOrderNotice("")}>×</button>
+          </div>
+        )}
+
+        <section className="hm-section" id="hm-products">
+          <div className="hm-section-head">
+            <div>
+              <span className="hm-kicker">✦ Featured Products</span>
+              <h2>{selectedCategory || "Fresh & Quality Products"}</h2>
+              <p>
+                {selectedCategory
+                  ? <span className="hm-filter-note">{visibleProducts.length} live listing{visibleProducts.length === 1 ? "" : "s"} in {selectedCategory}. <button type="button" onClick={() => setSelectedCategory("")}>Clear filter</button></span>
+                  : "Handpicked by trusted local farmers and suppliers."}
+              </p>
+            </div>
+            <Link className="hm-view-all" href="/search">View All Products <span aria-hidden="true">→</span></Link>
+          </div>
+          {catalogError && <p className="hm-catalog-error" role="alert">{catalogError}</p>}
+          {featuredProducts.length > 0 ? (
+            <div className="hm-product-grid">
+              {featuredProducts.map((product) => (
+                <HomeProductCard
+                  key={product.id}
+                  product={product}
+                  saved={favouriteIds.has(product.id)}
+                  onAdd={addToCart}
+                  onDetails={setSelectedProduct}
+                  onToggleSave={toggleFavourite}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="hm-empty">
+              {catalogLoading ? "Loading live products…" : "No products match this category yet."}
+            </p>
+          )}
+        </section>
+
+        <section className="hm-nearby" id="hm-vendors" aria-label="Nearby vendors">
+          <div className="hm-nearby-copy">
+            <span className="hm-nearby-pin" aria-hidden="true">📍</span>
+            <h2>Find Nearby Vendors</h2>
+            <p>Discover trusted sellers near you and compare prices in real time.</p>
+            <button type="button" className="hm-nearby-action" onClick={enableLocation}>◎ Enable Location</button>
+            <p className="hm-nearby-note">{locationNotice || "Allow location access for the best experience."}</p>
+          </div>
+          <div className="hm-map" aria-label="Map of nearby approved vendors">
+            {mapPins.map((pin, index) => (
+              <span className="hm-map-pin" key={`${pin.top}-${pin.left}`} style={{ top: pin.top, left: pin.left }} aria-hidden="true">
+                <i>{index + 1}</i>
+              </span>
+            ))}
+            {spotlightVendor && (
+              <div className="hm-map-card">
+                <span className="hm-map-card-art" aria-hidden="true">
+                  {spotlightVendor.imageUrl
+                    ? <Image src={spotlightVendor.imageUrl} alt="" fill sizes="40px" />
+                    : spotlightVendor.emoji}
+                </span>
+                <div>
+                  <strong>{spotlightVendor.name}</strong>
+                  <small>
+                    {spotlightVendor.fromPrice !== null
+                      ? `From ${formatMoney(spotlightVendor.fromPrice, spotlightVendor.currency)} · ${spotlightVendor.listings} listing${spotlightVendor.listings === 1 ? "" : "s"}`
+                      : spotlightVendor.detail}
+                  </small>
+                </div>
+                <Link href={spotlightVendor.route}>View</Link>
+              </div>
+            )}
+          </div>
+          <div className="hm-vendor-panel">
+            <div className="hm-vendor-head">
+              <strong>Nearby Vendors</strong>
+              <Link href="/search">View All →</Link>
+            </div>
+            <ul className="hm-vendor-list">
+              {vendorCards.length > 0 ? vendorCards.map((vendor) => (
+                <li key={vendor.id}>
+                  <Link className="hm-vendor-row" href={vendor.route}>
+                    <span className="hm-vendor-art" aria-hidden="true">
+                      {vendor.imageUrl ? <Image src={vendor.imageUrl} alt="" fill sizes="32px" /> : vendor.emoji}
+                    </span>
+                    <div>
+                      <strong>{vendor.name}</strong>
+                      <small>{vendor.detail}</small>
+                    </div>
+                    {vendor.fromPrice !== null && <b>{formatMoney(vendor.fromPrice, vendor.currency)}</b>}
+                  </Link>
+                </li>
+              )) : (
+                <li className="hm-vendor-empty">
+                  {catalogLoading ? "Loading approved vendors…" : "Approved vendors will appear here once they list products."}
+                </li>
+              )}
+            </ul>
+          </div>
+        </section>
+
+        <section className="hm-promos" aria-label="Why shop with SureFood">
+          <Link className="hm-promo" href="#hm-vendors" aria-label="Support local farmers — shop local">
+            <Image src="/images/promo-local-farmers.png" alt="Support local farmers: your purchase helps build stronger communities" fill sizes="(max-width: 720px) 100vw, 33vw" />
+          </Link>
+          <Link className="hm-promo" href="#hm-products" aria-label="Seasonal picks — shop now">
+            <Image src="/images/promo-seasonal-picks.png" alt="Seasonal picks: fresh, natural and in season" fill sizes="(max-width: 720px) 100vw, 33vw" />
+          </Link>
+          <Link className="hm-promo" href="#hm-about" aria-label="Quality you can trust — learn more">
+            <Image src="/images/promo-quality.png" alt="Quality you can trust: freshness, safety and real quality" fill sizes="(max-width: 720px) 100vw, 33vw" />
+          </Link>
+        </section>
+
+        <section className="hm-partners" aria-label="Our trusted partners">
+          <div className="hm-partners-head">
+            <strong>Our Trusted Partners</strong>
+            <small>Working together for a healthier and stronger community.</small>
+          </div>
+          <div className="hm-partner-track">
+            {partners.map((partner) => <span key={partner}>{partner}</span>)}
+          </div>
+        </section>
       </div>
-      <footer className="site-footer" id="about"><span data-no-translate>sure<span>food</span></span><span>Little choices. A whole lot of good.</span><Link href="/signup?role=vendor" className="footer-vendor">Vendor portal</Link><Link href="/signup?role=supplier" className="footer-vendor">Supplier portal</Link><Link href="/signup" className="footer-join">Join the table <span>→</span></Link></footer>
+
+      <footer className="hm-footer" id="hm-about">
+        <div className="hm-shell">
+          <div className="hm-footer-top">
+            <Link className="hm-brand" href="/" aria-label="SureFood home">
+              <span className="hm-brand-mark" aria-hidden="true">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 3.5C10.6 3.9 4.6 8.6 4.6 16.2c0 1.9.5 3.3.5 3.3 2.6-6.1 7.3-9.9 13-11.4-5 2.3-8.8 6-11.2 11.6 7.6 1 11.9-4 12.6-15.2Z" fill="currentColor" />
+                </svg>
+              </span>
+              <span className="hm-brand-text"><strong>SureFood</strong><small>Fresh Food · Better Life</small></span>
+            </Link>
+            <nav className="hm-footer-links" aria-label="Footer navigation">
+              <Link href="/">Home</Link>
+              <Link href="/search">Shop</Link>
+              <Link href="/signup?role=supplier">Suppliers</Link>
+              <Link href="#hm-categories">Categories</Link>
+              <Link href="#hm-about">About Us</Link>
+              <Link href="/pay-later">Pay later</Link>
+              <Link href="/special-orders">Event orders</Link>
+              <Link href="#hm-contact">Contact</Link>
+            </nav>
+            <div className="hm-footer-social" aria-label="SureFood on social media">
+              <span aria-hidden="true">f</span>
+              <span aria-hidden="true">◎</span>
+              <span aria-hidden="true">▶</span>
+              <span aria-hidden="true">in</span>
+            </div>
+          </div>
+          <div className="hm-footer-bottom" id="hm-contact">
+            <span>© {new Date().getFullYear()} SureFood. All rights reserved.</span>
+            <span><Link href="/signup?role=vendor">Sell on SureFood</Link><Link href="/signup?role=supplier">Supplier portal</Link></span>
+          </div>
+        </div>
+      </footer>
+
       {selectedProduct && (
         <ProductDetailsDialog
           key={selectedProduct.id}
@@ -629,6 +904,7 @@ export default function Home() {
           onAdd={addToCart}
           saved={favouriteIds.has(selectedProduct.id)}
           onToggleSave={toggleFavourite}
+          onEventOrder={(product, quantity) => router.push(eventOrderHref(product, quantity))}
         />
       )}
       {cartOpen && (
@@ -678,126 +954,65 @@ export default function Home() {
   );
 }
 
-const promoOffers = [
-  { title: "Shop live listings", detail: "Browse products from approved sellers", icon: "🧺", action: "Browse products", href: "#fresh", style: "rose" },
-  { title: "Local food businesses", detail: "Meet approved SureFood vendors", icon: "♡", action: "Meet vendors", href: "#top-vendors", style: "cream" },
-  { title: "Find a supplier", detail: "Explore approved wholesale suppliers", icon: "📦", action: "View suppliers", href: "#top-suppliers", style: "orange" },
-  { title: "Current discounts", detail: "See listings with a seller-set sale price", icon: "％", action: "Browse discounts", href: "#flash-sales", style: "blue" },
-  { title: "Limited availability", detail: "Find live listings with low stock", icon: "🥑", action: "See low stock", href: "#limited-stock", style: "coral" },
-];
-
-function PromoRail() {
-  const railRef = useRef<HTMLDivElement>(null);
-
-  function scrollOffers(direction: -1 | 1) {
-    railRef.current?.scrollBy({ left: railRef.current.clientWidth * direction * 0.75, behavior: "smooth" });
-  }
-
-  return (
-    <section className="promo-rail" aria-label="Explore the marketplace">
-      <div className="promo-rail-heading">
-        <div><span className="section-kicker">SUREFOOD MARKETPLACE</span><h2>Explore the marketplace</h2></div>
-        <div className="slider-buttons">
-          <button type="button" aria-label="Scroll offers left" onClick={() => scrollOffers(-1)}>←</button>
-          <button type="button" aria-label="Scroll offers right" onClick={() => scrollOffers(1)}>→</button>
-        </div>
-      </div>
-      <div className="promo-rail-track" ref={railRef}>
-        {promoOffers.map((offer) => (
-          <Link className={`promo-card ${offer.style}`} href={offer.href} key={offer.title}>
-            <span className="promo-card-copy"><strong>{offer.title}</strong><small>{offer.detail}</small></span>
-            <span className="promo-card-icon" aria-hidden="true">{offer.icon}</span>
-            <span className="promo-card-action">{offer.action}<span>→</span></span>
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function MarketplaceSection({
-  id,
-  title,
-  eyebrow,
-  actionLabel,
-  products: sectionProducts,
-  cards,
+function HomeProductCard({
+  product,
+  saved,
   onAdd,
   onDetails,
-  savedIds,
   onToggleSave,
-  emptyMessage,
-  variant = "standard",
 }: {
-  id: string;
-  title: string;
-  eyebrow: string;
-  actionLabel: string;
-  products?: Product[];
-  cards?: MarketplaceCard[];
-  onAdd?: (product: Product) => void;
-  onDetails?: (product: Product) => void;
-  savedIds?: Set<string>;
-  onToggleSave?: (product: Product) => void;
-  emptyMessage: string;
-  variant?: "standard" | "flash" | "feature";
+  product: Product;
+  saved: boolean;
+  onAdd: (product: Product) => void;
+  onDetails: (product: Product) => void;
+  onToggleSave: (product: Product) => void;
 }) {
-  const sliderRef = useRef<HTMLDivElement>(null);
-  const [showAll, setShowAll] = useState(false);
-
-  function scrollCards(direction: -1 | 1) {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: sliderRef.current.clientWidth * direction * 0.8, behavior: "smooth" });
-    }
-  }
+  const stock = product.stock ?? 0;
+  const outOfStock = Boolean(product.liveListing) && stock <= 0;
+  const discount = product.oldPrice && product.oldPrice > product.price
+    ? Math.round((1 - product.price / product.oldPrice) * 100)
+    : 0;
+  const badge = discount > 0
+    ? { label: "Sale", tone: "sale" }
+    : stock > 0 && stock <= 10
+      ? { label: "Low stock", tone: "low" }
+      : product.tag === "LIVE LISTING"
+        ? { label: "Fresh", tone: "fresh" }
+        : { label: product.tag, tone: "" };
+  const sellerLine = [product.sellerName, product.sellerLocation || product.sellerCity].filter(Boolean).join(" · ");
 
   return (
-    <section className={`marketplace-section ${variant}`} id={id}>
-      <div className="marketplace-section-heading">
-        <div><span className="section-kicker">{eyebrow}</span><h2>{title}{variant === "standard" && <span> ✳</span>}</h2></div>
-        <div className="marketplace-section-actions">
-          {!showAll && <div className="slider-buttons"><button type="button" aria-label={`Scroll ${title} left`} onClick={() => scrollCards(-1)}>←</button><button type="button" aria-label={`Scroll ${title} right`} onClick={() => scrollCards(1)}>→</button></div>}
-          <button type="button" className="see-all-button" aria-expanded={showAll} onClick={() => setShowAll((current) => !current)}>{showAll ? "Show less" : actionLabel} <span>{showAll ? "↑" : "→"}</span></button>
+    <article className="hm-product" onClick={() => onDetails(product)}>
+      <div className="hm-product-media">
+        <span className={`hm-product-badge ${badge.tone}`}>{badge.label}</span>
+        <button
+          type="button"
+          className={saved ? "hm-product-save saved" : "hm-product-save"}
+          aria-label={`${saved ? "Remove" : "Save"} ${product.name} ${saved ? "from" : "to"} favourites`}
+          aria-pressed={saved}
+          onClick={(event) => { event.stopPropagation(); onToggleSave(product); }}
+        >♥</button>
+        {product.imageUrl
+          ? <Image src={product.imageUrl} alt={product.name} fill quality={90} sizes="(max-width: 720px) 45vw, (max-width: 1120px) 24vw, 230px" />
+          : <span className="hm-product-emoji" aria-hidden="true">{product.emoji}</span>}
+      </div>
+      <div className="hm-product-body">
+        <h3>{product.name}</h3>
+        <p className="hm-product-seller">{sellerLine || product.category}</p>
+        <div className="hm-product-price">
+          <strong>{formatMoney(product.price, product.currency)}</strong>
+          {product.oldPrice && <del>{formatMoney(product.oldPrice, product.currency)}</del>}
+          {discount > 0 && <span className="hm-product-off">-{discount}%</span>}
         </div>
+        <button
+          type="button"
+          className="hm-add"
+          disabled={outOfStock}
+          onClick={(event) => { event.stopPropagation(); onAdd(product); }}
+        >
+          <span aria-hidden="true">🛒</span>{outOfStock ? "Out of stock" : "Add to Cart"}
+        </button>
       </div>
-      {sectionProducts && (showAll
-        ? <div className="marketplace-product-grid">{sectionProducts.map((product) => <ProductCard key={product.id} product={product} onAdd={onAdd} onDetails={onDetails} saved={savedIds?.has(product.id)} onToggleSave={onToggleSave} />)}</div>
-        : <div className="marketplace-slider" ref={sliderRef}>{sectionProducts.map((product) => <ProductCard key={product.id} product={product} onAdd={onAdd} onDetails={onDetails} saved={savedIds?.has(product.id)} onToggleSave={onToggleSave} />)}</div>)}
-      {cards && (showAll
-        ? <div className="marketplace-feature-grid">{cards.map((card) => <FeatureCard key={card.id} card={card} />)}</div>
-        : <div className="marketplace-slider feature-slider" ref={sliderRef}>{cards.map((card) => <FeatureCard key={card.id} card={card} />)}</div>)}
-      {sectionProducts && sectionProducts.length === 0 && <p className="marketplace-empty">{emptyMessage}</p>}
-      {cards && cards.length === 0 && <p className="marketplace-empty">{emptyMessage}</p>}
-    </section>
-  );
-}
-
-function LimitedStockSection({ products: sectionProducts, onAdd, onDetails, savedIds, onToggleSave, emptyMessage }: { products: Product[]; onAdd: (product: Product) => void; onDetails: (product: Product) => void; savedIds?: Set<string>; onToggleSave?: (product: Product) => void; emptyMessage: string }) {
-  const [showAll, setShowAll] = useState(false);
-  const visibleProducts = showAll ? sectionProducts : sectionProducts.slice(0, 6);
-
-  return (
-    <section className="marketplace-section limited-stock-section" id="limited-stock">
-      <div className="marketplace-section-heading">
-        <div><span className="section-kicker">LIVE INVENTORY</span><h2>Limited stock</h2><p>Products with 10 or fewer units currently available.</p></div>
-        <button type="button" className="see-all-button" aria-expanded={showAll} onClick={() => setShowAll((current) => !current)}>{showAll ? "Show fewer products" : "See all low-stock products"} <span>{showAll ? "↑" : "→"}</span></button>
-      </div>
-      <div className="limited-stock-grid">{visibleProducts.map((product) => <ProductCard key={product.id} product={product} onAdd={onAdd} onDetails={onDetails} showStock saved={savedIds?.has(product.id)} onToggleSave={onToggleSave} />)}</div>
-      {sectionProducts.length === 0 && <p className="marketplace-empty">{emptyMessage}</p>}
-    </section>
-  );
-}
-
-function FeatureCard({ card }: { card: MarketplaceCard }) {
-  return (
-    <article className="marketplace-feature-card">
-      <div className="feature-card-art">
-        {card.imageUrl
-          ? <Image src={card.imageUrl} alt={`${card.name} product`} fill sizes="(max-width: 700px) 60vw, 240px" quality={90} className="feature-card-image" />
-          : <span>{card.emoji}</span>}
-        <small>{card.badge}</small>
-      </div>
-      <div className="feature-card-info"><h3>{card.name}</h3><p>{card.detail}</p><Link href={card.route}>Visit store <span>→</span></Link></div>
     </article>
   );
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { v2 as cloudinary } from "cloudinary";
+import { payLaterDocumentTypes, type PayLaterDocumentType } from "@/lib/requests";
 
 export const verificationDocumentTypes = ["business-registration", "proof-of-address", "nin"] as const;
 export type VerificationDocumentType = typeof verificationDocumentTypes[number];
@@ -52,6 +53,50 @@ export async function findVerificationDocument(uid: string, type: VerificationDo
     if (typeof error === "object" && error !== null && "http_code" in error && error.http_code === 404) return null;
     throw error;
   }
+}
+
+export function payLaterDocumentPublicId(uid: string, type: PayLaterDocumentType, format: string) {
+  return `surefood/pay-later/${uid}/${type}/document.${format}`;
+}
+
+// Pay Later evidence includes registration certificates and employment letters,
+// so it is held in the same private Cloudinary space as KYC documents.
+export async function findPayLaterDocument(uid: string, type: PayLaterDocumentType, publicId: string) {
+  const match = publicId.match(/^surefood\/pay-later\/([A-Za-z0-9_-]{1,128})\/([a-z-]{1,40})\/document\.(pdf|jpg|png)$/);
+  if (!match || match[1] !== uid || match[2] !== type || !documentFormats.has(match[3])) return null;
+  if (!payLaterDocumentTypes.includes(type)) return null;
+
+  configureCloudinary();
+  try {
+    const asset = await cloudinary.api.resource(publicId, { resource_type: "raw", type: "private" }) as {
+      public_id?: string;
+      bytes?: number;
+      resource_type?: string;
+      type?: string;
+    };
+    if (
+      asset.public_id !== publicId ||
+      asset.resource_type !== "raw" ||
+      asset.type !== "private" ||
+      Number(asset.bytes) <= 0 ||
+      Number(asset.bytes) > 15 * 1024 * 1024
+    ) return null;
+    return { ...asset, format: match[3] };
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "http_code" in error && error.http_code === 404) return null;
+    throw error;
+  }
+}
+
+export function payLaterDocumentDownloadUrl(publicId: string) {
+  configureCloudinary();
+  const match = publicId.match(/^surefood\/pay-later\/[A-Za-z0-9_-]{1,128}\/([a-z-]{1,40})\/document\.(pdf|jpg|png)$/);
+  if (!match) throw new Error("Invalid Pay Later document reference.");
+  return cloudinary.utils.private_download_url(publicId, match[3], {
+    resource_type: "raw",
+    type: "private",
+    expires_at: Math.floor(Date.now() / 1000) + 15 * 60,
+  });
 }
 
 export function verificationDocumentDownloadUrl(publicId: string) {

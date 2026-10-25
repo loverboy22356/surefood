@@ -6,6 +6,7 @@ import {
   apiProductToListing,
   matchesSearch,
   ProductDetailsDialog,
+  eventOrderHref,
   readFavourites,
   writeFavourites,
   type ApiProduct,
@@ -291,6 +292,7 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
           onAdd={addToBasket}
           saved={favouriteIds.has(selected.id)}
           onToggleSave={toggleFavourite}
+          onEventOrder={(product, quantity) => { window.location.assign(eventOrderHref(product, quantity)); }}
         />
       )}
     </main>
