@@ -183,9 +183,46 @@
 .affiliate-admin-list strong { color: #2a1346; }
 .affiliate-admin-list em { color: #6b5b86; font-style: normal; white-space: nowrap; }
 
+/* The shared step list is built for number + icon + copy. This card has no icon,
+   so without this the copy is squeezed into the 38px icon column and every word
+   lands on its own line. */
+.pl-how-list.affiliate-how-list li {
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.pl-how-list.affiliate-how-list .pl-how-copy strong { margin-top: 4px; }
+
+@media (max-width: 900px) {
+  .affiliate-page .service-grid { grid-template-columns: minmax(0, 1fr); }
+  .affiliate-page .service-shell { padding-inline: 16px; }
+  .affiliate-page .pl-side { gap: 14px; }
+}
+
 @media (max-width: 720px) {
   .affiliate-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .affiliate-link-box { flex-direction: column; align-items: stretch; }
   .affiliate-link-box button { width: 100%; }
   .affiliate-admin-list li { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 560px) {
+  .affiliate-page .service-hero-inner,
+  .affiliate-page .service-shell { padding-inline: 14px; }
+  .affiliate-page .service-card,
+  .affiliate-page .pl-how { padding: 14px; border-radius: 16px; }
+  .affiliate-page .pl-how h2 { font-size: 17px; }
+  .pl-how-list.affiliate-how-list li { grid-template-columns: 26px minmax(0, 1fr); gap: 10px; }
+  .pl-how-list.affiliate-how-list .pl-how-num { width: 26px; height: 26px; font-size: 11px; }
+  .pl-how-list.affiliate-how-list .pl-how-copy strong { margin-top: 2px; font-size: 12.5px; }
+  .pl-how-list.affiliate-how-list .pl-how-copy small { font-size: 11px; }
+  .affiliate-code-row { flex-wrap: wrap; }
+  .affiliate-code-row strong { width: 100%; text-align: center; }
+  .affiliate-payouts li { flex-wrap: wrap; gap: 6px; }
+  .affiliate-orders li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 3px; padding: 8px 10px; }
+  .affiliate-orders li strong { grid-column: 1 / -1; font-size: 11px; }
+  .affiliate-admin-list li { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .affiliate-join-list li,
+  .affiliate-rules li { font-size: 12px; }
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
 
 type AccountRole = "buyer" | "vendor" | "supplier";
@@ -44,6 +44,9 @@ export default function AccountPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const [profileError, setProfileError] = useState("");
+  const [profileMissing, setProfileMissing] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -56,9 +59,48 @@ export default function AccountPage() {
   const [payingOrderId, setPayingOrderId] = useState("");
   const [orderNotice, setOrderNotice] = useState("");
 
+  /**
+   * Loads the stored profile for a signed-in customer. A 401 usually means the
+   * cached ID token is stale or was revoked, so we refresh it once before
+   * showing anything: asking a signed-in customer to sign in again is the last
+   * resort, not the first answer.
+   */
+  const loadProfile = useCallback(async (currentUser: User, forceRefresh = false) => {
+    setProfileError("");
+    setProfileMissing(false);
+    setLoadingProfile(true);
+    const request = async (refresh: boolean) => {
+      const token = await currentUser.getIdToken(refresh);
+      return fetch("/api/profile", {
+        headers: { authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+    };
+    try {
+      let response = await request(forceRefresh);
+      if (response.status === 401 && !forceRefresh) response = await request(true);
+      const result = await response.json();
+      if (response.status === 404) {
+        setProfileMissing(true);
+        return null;
+      }
+      if (!response.ok) throw new Error(result.error || "We could not load your account details.");
+      const accountProfile = result.profile as AccountProfile;
+      setProfile(accountProfile);
+      setPhone(accountProfile.phone ?? "");
+      setLocation(accountProfile.location ?? "");
+      return accountProfile;
+    } catch (reason) {
+      setProfileError(reason instanceof Error ? reason.message : "We could not load your account details just now.");
+      return null;
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!firebaseConfigured()) {
-      setError("Firebase is not configured. Set up .env.local before viewing your profile.");
+      setProfileError("This site is not connected to its accounts service yet. Try again later.");
       setLoading(false);
       return;
     }
@@ -97,35 +139,19 @@ export default function AccountPage() {
         return;
       }
 
-      try {
-        const token = await currentUser.getIdToken();
-        const response = await fetch("/api/profile", {
-          headers: { authorization: `Bearer ${token}` },
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not load your profile.");
-        if (active) {
-          const accountProfile = result.profile as AccountProfile;
-          setProfile(accountProfile);
-          setPhone(accountProfile.phone ?? "");
-          setLocation(accountProfile.location ?? "");
-        }
-        if (currentUser) {
-          await loadOrders(currentUser);
-          orderRefreshInterval = window.setInterval(() => void loadOrders(currentUser), 20_000);
-        }
-      } catch (reason) {
-        if (active) setError(reason instanceof Error ? reason.message : "Could not load your profile.");
-      } finally {
-        if (active) setLoading(false);
+      const accountProfile = await loadProfile(currentUser);
+      if (active && accountProfile) {
+        await loadOrders(currentUser);
+        orderRefreshInterval = window.setInterval(() => void loadOrders(currentUser), 20_000);
       }
+      if (active) setLoading(false);
     });
     return () => {
       active = false;
       unsubscribe();
       if (orderRefreshInterval !== undefined) window.clearInterval(orderRefreshInterval);
     };
-  }, [router]);
+  }, [router, loadProfile]);
 
   useEffect(() => {
     const shouldFocusOrders = new URLSearchParams(window.location.search).get("orders") === "1";
@@ -209,7 +235,7 @@ export default function AccountPage() {
         <div className="account-avatar" aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</div>
         <h1>{displayName}</h1>
         <p className="account-email">{email}</p>
-        {error && <p className="account-error" role="alert">{error}</p>}
+        {profile && error && <p className="account-error" role="alert">{error}</p>}
         {profile ? (
           <>
             <dl className="account-details">
@@ -274,7 +300,27 @@ export default function AccountPage() {
             </section>}
           </>
         ) : (
-          <p className="account-unavailable">Your Google profile is signed in. Account details could not be loaded from SureFood right now.</p>
+          <div className="account-recovery" role="status">
+            <p>
+              {profileMissing
+                ? "You are signed in, but this account has no SureFood profile yet. Finish setting it up to start ordering."
+                : profileError || "We could not load your account details just now."}
+            </p>
+            <div className="account-recovery-actions">
+              {profileMissing ? (
+                <Link className="account-save-button" href="/signup">Finish account setup</Link>
+              ) : (
+                <button
+                  className="account-save-button"
+                  type="button"
+                  disabled={loadingProfile}
+                  onClick={() => user && void loadProfile(user, true)}
+                >
+                  {loadingProfile ? "Trying again…" : "Try again"}
+                </button>
+              )}
+            </div>
+          </div>
         )}
         {(profile?.role === "vendor" || profile?.role === "supplier") && (
           <Link className="account-workspace-link" href={profile.verificationStatus === "approved" ? `/${profile.role}` : "/onboarding"}>

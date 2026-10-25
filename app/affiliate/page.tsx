@@ -309,7 +309,7 @@ export default function AffiliatePage() {
           <aside className="pl-side">
             <section className="pl-how">
               <h2><span className="pl-panel-mark">✦</span> How it works</h2>
-              <ol className="pl-how-list">
+              <ol className="pl-how-list affiliate-how-list">
                 {steps.map((step, index) => (
                   <li key={step.title}>
                     <span className="pl-how-num" aria-hidden="true">{index + 1}</span>

@@ -402,7 +402,17 @@ a { color: inherit; text-decoration: none; }
 .account-details > div { display: flex; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .account-details dt { color: var(--muted); }
 .account-details dd { margin: 0; color: var(--ink); font-weight: 600; text-align: right; text-transform: capitalize; }
-.account-error, .account-unavailable { padding: 12px; border-radius: 7px; background: #fff7e8; color: #795821; font-size: 13px; line-height: 1.5; text-align: left; }
+.account-error { padding: 12px; border-radius: 7px; background: #fff7e8; color: #795821; font-size: 13px; line-height: 1.5; text-align: left; }
+
+.account-recovery { display: grid; gap: 14px; margin-top: 22px; padding: 16px 18px; border: 1px solid #ece4f8; border-radius: 12px; background: #fbf8ff; text-align: left; }
+
+.account-recovery p { margin: 0; color: #6b5b86; font-size: 13px; line-height: 1.6; }
+
+.account-recovery-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+.account-recovery .account-save-button { margin-top: 0; padding: 0 22px; }
+
+.account-recovery .account-shop-link { margin-top: 0; }
 .account-contact-form { display: grid; gap: 9px; margin-top: 20px; text-align: left; }
 .account-contact-form > p { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .account-contact-form label { color: #514b59; font-size: 12px; font-weight: 600; }
