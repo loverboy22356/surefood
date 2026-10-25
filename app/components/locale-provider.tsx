@@ -209,11 +209,14 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dir = RTL.has(language.slice(0, 2)) ? "rtl" : "ltr";
   }, [language, currency, manualChoice, hydrated]);
 
+  // Prices are set in Naira and converted for display. The rate is reloaded every ten
+  // minutes (and whenever the visitor returns to the tab) so a day-trading currency
+  // never leaves either side of the order out of pocket.
   useEffect(() => {
     let active = true;
-    void (async () => {
+    async function loadRates() {
       try {
-        const response = await fetch("/api/rates", { signal: AbortSignal.timeout(12_000) });
+        const response = await fetch("/api/rates", { cache: "no-store", signal: AbortSignal.timeout(12_000) });
         const data = await response.json() as RatesPayload & { error?: string };
         if (!response.ok) throw new Error(data.error || "Exchange rates are unavailable.");
         if (!active) return;
@@ -223,8 +226,16 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         if (active) setRatesError(error instanceof Error ? error.message : "Exchange rates are unavailable.");
       }
-    })();
-    return () => { active = false; };
+    }
+    void loadRates();
+    const interval = window.setInterval(() => void loadRates(), 10 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === "visible") void loadRates(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const setLanguage = useCallback((code: string) => {
@@ -250,7 +261,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     if (currency === "NGN") return amountMajor;
     const rate = rates?.[currency];
     if (!rate) return null;
-    return amountMajor * rate;
+    // Rounded to the smallest unit actually shown, so the displayed price is
+    // exactly the price the visitor reads — no silent fraction of a cent.
+    return Math.round(amountMajor * rate * 100) / 100;
   }, [currency, rates]);
 
   const formatAmount = useCallback((amountMajor: number) => {

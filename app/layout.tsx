@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./browse.css";
+import "./motion.css";
 import "./vendor/vendor.css";
 import { AutoLocalize } from "./components/auto-localize";
 import { LocaleProvider } from "./components/locale-provider";

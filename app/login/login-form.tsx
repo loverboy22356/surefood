@@ -11,6 +11,7 @@ import {
   signInWithRedirect,
 } from "firebase/auth";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
+import { HumanCheck } from "@/app/components/human-check";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function LoginForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [human, setHuman] = useState(false);
 
   useEffect(() => {
     if (!firebaseConfigured()) return;
@@ -63,8 +65,12 @@ export default function LoginForm() {
 
   async function requestCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
     setError("");
+    if (!human) {
+      setError("Please confirm you are not a robot first.");
+      return;
+    }
+    setBusy(true);
     try {
       const response = await fetch("/api/auth/request-code", {
         method: "POST",
@@ -104,8 +110,12 @@ export default function LoginForm() {
   }
 
   async function loginWithGoogle() {
-    setBusy(true);
     setError("");
+    if (!human) {
+      setError("Please confirm you are not a robot first.");
+      return;
+    }
+    setBusy(true);
     try {
       if (!firebaseConfigured()) throw new Error("Firebase sign-in is not configured yet.");
       const credential = await signInWithPopup(firebaseAuth(), new GoogleAuthProvider());
@@ -149,9 +159,10 @@ export default function LoginForm() {
           <button className="auth-back-link" type="button" onClick={() => { setStep("email"); setError(""); }}>Use a different email</button>
         </form>
       )}
+      <HumanCheck verified={human} onChange={setHuman} disabled={busy} />
       {error && <p className="auth-error" role="alert">{error}</p>}
       <div className="auth-divider"><span />or<span /></div>
-      <button className="google-button" type="button" disabled={busy} onClick={loginWithGoogle}><span className="google-mark">G</span>Continue with Google</button>
+      <button className="google-button" type="button" disabled={busy || !human} onClick={loginWithGoogle}><span className="google-mark">G</span>Continue with Google</button>
       <p className="auth-switch">New to SureFood? <a href="/signup">Create an account</a></p>
     </div>
   );

@@ -15,9 +15,11 @@ import {
   apiProductToListing,
   readFavourites,
   writeFavourites,
+  sellerRoleLabels,
   type ApiProduct,
   type MarketplaceProduct as Product,
 } from "@/app/components/marketplace-product";
+import { coordsForPlace, distanceKm, formatDistance } from "@/lib/places";
 import "./home.css";
 
 const homeCategories: { icon: string; name: string; label: string }[] = [
@@ -39,7 +41,19 @@ type SellerCard = {
   imageUrl?: string;
   badge: string;
   route: string;
+  city?: string;
+  region?: string;
+  role?: string;
 };
+
+const mapPinSpots = [
+  { top: "18%", left: "24%" },
+  { top: "34%", left: "56%" },
+  { top: "14%", left: "72%" },
+  { top: "58%", left: "38%" },
+  { top: "46%", left: "84%" },
+  { top: "68%", left: "66%" },
+];
 
 type CartLine = {
   product: Product;
@@ -66,14 +80,6 @@ function initialsOf(value: string) {
   if (!parts.length) return "";
   return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
-
-const mapPins = [
-  { top: "18%", left: "24%" },
-  { top: "34%", left: "56%" },
-  { top: "14%", left: "72%" },
-  { top: "58%", left: "38%" },
-  { top: "46%", left: "84%" },
-];
 
 const partners = ["Olam", "farmcrowdy", "DANGOTE", "Nestlé", "Unilever", "PZ Cussons", "NIRSAL", "NNPC", "Flour Mills"];
 
@@ -107,7 +113,7 @@ const deliveryCities = ["Lagos", "Abuja", "Port Harcourt", "Ibadan", "Kano", "En
 
 export default function Home() {
   const router = useRouter();
-  const { currency, country, detectedCity } = useLocale();
+  const { currency, country, detectedCity, rates, ratesUpdatedAt } = useLocale();
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [topVendors, setTopVendors] = useState<SellerCard[]>([]);
   const [catalogError, setCatalogError] = useState("");
@@ -135,6 +141,9 @@ export default function Home() {
   const [chosenCity, setChosenCity] = useState("");
   const [locatedLabel, setLocatedLabel] = useState("");
   const [locationMenuOpen, setLocationMenuOpen] = useState(false);
+  const [locatedCity, setLocatedCity] = useState("");
+  const [myCoords, setMyCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [nearbyFocus, setNearbyFocus] = useState("");
   const itemCount = cart.reduce((total, line) => total + line.quantity, 0);
   const subtotal = cart.reduce((total, line) => total + line.product.price * line.quantity, 0);
   const cartCurrency = cart[0]?.product.currency ?? "NGN";
@@ -158,37 +167,75 @@ export default function Home() {
     }
     return best;
   }, [catalogProducts]);
-  const productSellers = useMemo(() => {
+  const nearbyCards = useMemo(() => {
     const sellers = new Map<string, SellerCard>();
     for (const product of catalogProducts) {
       if (!product.sellerId || sellers.has(product.sellerId)) continue;
+      const place = [product.sellerCity || product.sellerLocation, product.sellerRegion]
+        .filter((part) => typeof part === "string" && part.trim())
+        .join(", ");
       sellers.set(product.sellerId, {
         id: product.sellerId,
         name: product.sellerName || "SureFood seller",
-        detail: [product.sellerCity || product.sellerLocation, product.sellerRole ? `${product.sellerRole[0].toUpperCase()}${product.sellerRole.slice(1)}` : ""].filter(Boolean).join(" · ") || product.category,
+        detail: place || product.category,
+        city: product.sellerCity ?? "",
+        region: product.sellerRegion ?? "",
+        role: product.sellerRole ?? "",
         emoji: "🏪",
         ...(product.imageUrl ? { imageUrl: product.imageUrl } : {}),
         badge: "Approved seller",
         route: `/store/${product.sellerId}`,
       });
     }
-    return [...sellers.values()];
-  }, [catalogProducts]);
-  const nearbySellers = topVendors.length > 0 ? topVendors : productSellers;
-  const vendorCards = useMemo(() => nearbySellers.slice(0, 5).map((vendor) => {
-    const listings = catalogProducts.filter((product) => product.sellerId === vendor.id);
-    const cheapest = listings.reduce<Product | null>(
-      (current, product) => (!current || product.price < current.price ? product : current),
-      null,
-    );
-    return {
-      ...vendor,
-      listings: listings.length,
-      fromPrice: cheapest ? cheapest.price : null,
-      currency: cheapest?.currency ?? "NGN",
-    };
-  }), [nearbySellers, catalogProducts]);
+    for (const vendor of topVendors) {
+      if (sellers.has(vendor.id)) continue;
+      sellers.set(vendor.id, { ...vendor, role: vendor.role ?? "vendor" });
+    }
+    // The buyer's own anchor: GPS when allowed, otherwise the chosen or detected city.
+    const focus = (chosenCity || locatedCity || detectedCity || "").trim().toLowerCase();
+    const cards = [...sellers.values()].map((seller) => {
+      const listings = catalogProducts.filter((product) => product.sellerId === seller.id);
+      const cheapest = listings.reduce<Product | null>(
+        (current, product) => (!current || product.price < current.price ? product : current),
+        null,
+      );
+      const coords = coordsForPlace(seller.city ?? "", seller.region ?? "");
+      const distance = coords && myCoords ? distanceKm(myCoords, coords) : null;
+      const haystack = [seller.city, seller.region, seller.detail].filter(Boolean).join(" ").toLowerCase();
+      return {
+        ...seller,
+        listings: listings.length,
+        fromPrice: cheapest ? cheapest.price : null,
+        currency: cheapest?.currency ?? "NGN",
+        distanceKm: distance,
+        near: Boolean(focus) && haystack.includes(focus),
+        roleLabel: sellerRoleLabels[seller.role ?? ""] ?? "Approved seller",
+      };
+    });
+    return cards.sort((a, b) => {
+      if (a.distanceKm !== null && b.distanceKm !== null) return a.distanceKm - b.distanceKm;
+      if (a.distanceKm !== null) return -1;
+      if (b.distanceKm !== null) return 1;
+      if (a.near !== b.near) return a.near ? -1 : 1;
+      return b.listings - a.listings;
+    });
+  }, [catalogProducts, topVendors, chosenCity, locatedCity, detectedCity, myCoords]);
+  const vendorCards = nearbyCards.slice(0, 6);
   const spotlightVendor = vendorCards[0];
+  const focusedVendor = nearbyCards.find((vendor) => vendor.id === nearbyFocus) ?? null;
+  const focusedProducts = focusedVendor
+    ? catalogProducts.filter((product) => product.sellerId === focusedVendor.id)
+    : [];
+  const rateNote = currency !== "NGN" && rates?.[currency]
+    ? `1 NGN ≈ ${new Intl.NumberFormat("en-US", { style: "currency", currency, maximumSignificantDigits: 3 }).format(rates[currency])}`
+    : "";
+  const rateUpdatedLabel = useMemo(() => {
+    if (!ratesUpdatedAt) return "";
+    const parsed = new Date(ratesUpdatedAt);
+    return Number.isNaN(parsed.getTime())
+      ? ratesUpdatedAt
+      : parsed.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }, [ratesUpdatedAt]);
   const accountInitials = initialsOf(accountName);
   const countryName = useMemo(() => {
     if (!country) return "";
@@ -204,7 +251,25 @@ export default function Home() {
     setChosenCity(window.localStorage.getItem("surefood-delivery-city") ?? "");
     const savedLocation = window.localStorage.getItem("surefood-current-location");
     if (savedLocation) setLocatedLabel(savedLocation);
+    const savedCity = window.localStorage.getItem("surefood-current-city");
+    if (savedCity) setLocatedCity(savedCity);
+    try {
+      const savedCoords = JSON.parse(window.localStorage.getItem("surefood-coords") ?? "null") as { lat?: unknown; lon?: unknown } | null;
+      if (savedCoords && Number.isFinite(Number(savedCoords.lat)) && Number.isFinite(Number(savedCoords.lon))) {
+        setMyCoords({ lat: Number(savedCoords.lat), lon: Number(savedCoords.lon) });
+      }
+    } catch (reason) {
+      console.error("Could not restore the saved location fix.", reason);
+    }
   }, []);
+
+  /** Shows every product this seller lists, under the place they trade from. */
+  function focusNearby(sellerId: string) {
+    setNearbyFocus(sellerId);
+    window.setTimeout(() => {
+      document.getElementById("hm-nearby-products")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
 
   function chooseCity(city: string) {
     setChosenCity(city);
@@ -393,7 +458,10 @@ export default function Home() {
       (position) => {
         settled = true;
         window.clearTimeout(guard);
-        void nameLocatedPlace(position.coords.latitude, position.coords.longitude);
+        const fix = { lat: position.coords.latitude, lon: position.coords.longitude };
+        setMyCoords(fix);
+        window.localStorage.setItem("surefood-coords", JSON.stringify(fix));
+        void nameLocatedPlace(fix.lat, fix.lon);
       },
       () => {
         settled = true;
@@ -422,10 +490,12 @@ export default function Home() {
       const label = [city, countryName].filter(Boolean).join(", ");
       if (!label) throw new Error("We could not name your location.");
       setLocatedLabel(label);
+      setLocatedCity(city);
       setChosenCity("");
       window.localStorage.removeItem("surefood-delivery-city");
       window.localStorage.setItem("surefood-current-location", label);
-      setLocationNotice(`Location on. Showing approved sellers around ${city || label}.`);
+      if (city) window.localStorage.setItem("surefood-current-city", city);
+      setLocationNotice(`Location on. Nearby sellers around ${city || label} are listed first.`);
     } catch (reason) {
       setLocationNotice(reason instanceof Error ? reason.message : "We could not name your location.");
     }
@@ -781,6 +851,12 @@ export default function Home() {
                   ? <span className="hm-filter-note">{visibleProducts.length} live listing{visibleProducts.length === 1 ? "" : "s"} in {selectedCategory}. <button type="button" onClick={() => setSelectedCategory("")}>Clear filter</button></span>
                   : "Handpicked by trusted local farmers and suppliers."}
               </p>
+              {rateNote && (
+                <p className="hm-rate-note">
+                  Prices shown in {currency} at the live rate ({rateNote}
+                  {rateUpdatedLabel ? `, updated ${rateUpdatedLabel}` : ""}). Your order is charged in Naira at checkout.
+                </p>
+              )}
             </div>
             <Link className="hm-view-all" href="/search">View All Products <span aria-hidden="true">→</span></Link>
           </div>
@@ -805,25 +881,46 @@ export default function Home() {
           )}
         </section>
 
-        <section className="hm-nearby" id="hm-vendors" aria-label="Nearby vendors">
+        <section className="hm-nearby" id="hm-vendors" aria-label="Vendors and suppliers near you">
           <div className="hm-nearby-copy">
             <span className="hm-nearby-pin" aria-hidden="true">📍</span>
-            <h2>Find Nearby Vendors</h2>
-            <p>Discover trusted sellers near you and compare prices in real time.</p>
-            <button type="button" className="hm-nearby-action" onClick={enableLocation}>◎ Enable Location</button>
-            <p className="hm-nearby-note">{locationNotice || "Allow location access for the best experience."}</p>
+            <h2>Find vendors &amp; suppliers near you</h2>
+            <p>Every approved vendor and supplier, nearest to your location first. Open one and its products appear right under that place.</p>
+            <button type="button" className="hm-nearby-action" onClick={enableLocation}>◎ Use my location</button>
+            <label className="hm-nearby-city">
+              <span>Or pick where you are</span>
+              <select value={chosenCity} onChange={(event) => chooseCity(event.target.value)}>
+                <option value="">Use my detected location</option>
+                {deliveryCities.map((city) => <option key={city} value={city}>{city}</option>)}
+              </select>
+            </label>
+            <p className="hm-nearby-note">
+              {locationNotice || (placeLabel ? `Showing sellers nearest ${placeLabel}.` : "Allow location access to see who is closest to you.")}
+            </p>
           </div>
-          <div className="hm-map" aria-label="Map of nearby approved vendors">
-            {mapPins.map((pin, index) => (
-              <span className="hm-map-pin" key={`${pin.top}-${pin.left}`} style={{ top: pin.top, left: pin.left }} aria-hidden="true">
-                <i>{index + 1}</i>
-              </span>
-            ))}
+          <div className="hm-map" aria-label="Map of sellers near you">
+            <span className="hm-map-you" aria-hidden="true"><i />You</span>
+            {mapPinSpots.map((pin, index) => {
+              const vendor = vendorCards[index];
+              return (
+                <button
+                  type="button"
+                  className="hm-map-pin"
+                  key={`${pin.top}-${pin.left}`}
+                  style={{ top: pin.top, left: pin.left, animationDelay: `${index * 90}ms` }}
+                  onClick={() => { if (vendor) focusNearby(vendor.id); }}
+                  aria-label={vendor ? `${vendor.name}, ${vendor.roleLabel}${vendor.distanceKm !== null ? `, ${formatDistance(vendor.distanceKm)}` : ""}` : "Nearby seller"}
+                  title={vendor?.name}
+                >
+                  <i>{index + 1}</i>
+                </button>
+              );
+            })}
             {spotlightVendor && (
               <div className="hm-map-card">
                 <span className="hm-map-card-art" aria-hidden="true">
                   {spotlightVendor.imageUrl
-                    ? <Image src={spotlightVendor.imageUrl} alt="" fill sizes="40px" />
+                    ? <Image src={spotlightVendor.imageUrl} alt="" fill quality={90} sizes="60px" />
                     : spotlightVendor.emoji}
                 </span>
                 <div>
@@ -832,39 +929,75 @@ export default function Home() {
                     {spotlightVendor.fromPrice !== null
                       ? `From ${formatMoney(spotlightVendor.fromPrice, spotlightVendor.currency)} · ${spotlightVendor.listings} listing${spotlightVendor.listings === 1 ? "" : "s"}`
                       : spotlightVendor.detail}
+                    {spotlightVendor.distanceKm !== null ? ` · ${formatDistance(spotlightVendor.distanceKm)}` : ""}
                   </small>
                 </div>
-                <Link href={spotlightVendor.route}>View</Link>
+                <button type="button" className="hm-map-view" onClick={() => focusNearby(spotlightVendor.id)}>View</button>
               </div>
             )}
           </div>
           <div className="hm-vendor-panel">
             <div className="hm-vendor-head">
-              <strong>Nearby Vendors</strong>
+              <strong>Nearby vendors &amp; suppliers</strong>
               <Link href="/search">View All →</Link>
             </div>
             <ul className="hm-vendor-list">
               {vendorCards.length > 0 ? vendorCards.map((vendor) => (
                 <li key={vendor.id}>
-                  <Link className="hm-vendor-row" href={vendor.route}>
+                  <button type="button" className="hm-vendor-row" onClick={() => focusNearby(vendor.id)}>
                     <span className="hm-vendor-art" aria-hidden="true">
-                      {vendor.imageUrl ? <Image src={vendor.imageUrl} alt="" fill sizes="32px" /> : vendor.emoji}
+                      {vendor.imageUrl ? <Image src={vendor.imageUrl} alt="" fill quality={90} sizes="48px" /> : vendor.emoji}
                     </span>
                     <div>
                       <strong>{vendor.name}</strong>
-                      <small>{vendor.detail}</small>
+                      <small>
+                        {vendor.roleLabel}
+                        {vendor.distanceKm !== null ? ` · ${formatDistance(vendor.distanceKm)}` : vendor.detail ? ` · ${vendor.detail}` : ""}
+                      </small>
                     </div>
                     {vendor.fromPrice !== null && <b>{formatMoney(vendor.fromPrice, vendor.currency)}</b>}
-                  </Link>
+                  </button>
                 </li>
               )) : (
                 <li className="hm-vendor-empty">
-                  {catalogLoading ? "Loading approved vendors…" : "Approved vendors will appear here once they list products."}
+                  {catalogLoading ? "Loading sellers near you…" : "Approved sellers will appear here once they list products."}
                 </li>
               )}
             </ul>
           </div>
         </section>
+
+        {focusedVendor && (
+          <section className="hm-nearby-products" id="hm-nearby-products" aria-label={`Products from ${focusedVendor.name}`}>
+            <div className="hm-section-head">
+              <div>
+                <span className="hm-kicker">📍 {focusedVendor.roleLabel} near you</span>
+                <h2>{focusedVendor.name}</h2>
+                <p>
+                  {focusedVendor.detail}
+                  {focusedVendor.distanceKm !== null ? ` · ${formatDistance(focusedVendor.distanceKm)}` : ""}
+                  {" · "}{focusedProducts.length} listing{focusedProducts.length === 1 ? "" : "s"} under this location.
+                </p>
+              </div>
+              <div className="hm-nearby-product-actions">
+                <button type="button" className="hm-nearby-clear" onClick={() => setNearbyFocus("")}>Close</button>
+                <Link className="hm-store-open" href={focusedVendor.route}>Open store <span aria-hidden="true">→</span></Link>
+              </div>
+            </div>
+            <div className="hm-product-grid">
+              {focusedProducts.map((product) => (
+                <HomeProductCard
+                  key={product.id}
+                  product={product}
+                  saved={favouriteIds.has(product.id)}
+                  onAdd={addToCart}
+                  onDetails={setSelectedProduct}
+                  onToggleSave={toggleFavourite}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="hm-promos" aria-label="Why shop with SureFood">
           <Link className="hm-promo" href="#hm-vendors" aria-label="Support local farmers — shop local">
@@ -1120,7 +1253,7 @@ function HomeProductCard({
           onClick={(event) => { event.stopPropagation(); onToggleSave(product); }}
         >♥</button>
         {product.imageUrl
-          ? <Image src={product.imageUrl} alt={product.name} fill quality={90} sizes="(max-width: 720px) 45vw, (max-width: 1120px) 24vw, 230px" />
+          ? <Image src={product.imageUrl} alt={product.name} fill quality={92} sizes="(max-width: 640px) 46vw, (max-width: 1120px) 30vw, 300px" />
           : <span className="hm-product-emoji" aria-hidden="true">{product.emoji}</span>}
       </div>
       <div className="hm-product-body">

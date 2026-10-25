@@ -1,0 +1,274 @@
+/* ============================================================
+   SureFood motion layer
+   Small, GPU-friendly animations that make the shop feel alive.
+   Everything here is decorative: it is switched off completely
+   when the visitor asks for reduced motion.
+   ============================================================ */
+
+@keyframes sf-fade-up {
+  from { opacity: 0; transform: translate3d(0, 26px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sf-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sf-pop-in {
+  0% { opacity: 0; transform: scale(.86) translateY(10px); }
+  70% { transform: scale(1.02) translateY(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes sf-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+
+@keyframes sf-pin-drop {
+  0% { opacity: 0; transform: rotate(-45deg) translate(-14px, -18px) scale(.6); }
+  60% { opacity: 1; transform: rotate(-45deg) translate(0, -4px) scale(1.08); }
+  100% { transform: rotate(-45deg) translate(0, 0) scale(1); }
+}
+
+@keyframes sf-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(91, 33, 182, .35); }
+  70% { box-shadow: 0 0 0 16px rgba(91, 33, 182, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(91, 33, 182, 0); }
+}
+
+@keyframes sf-shine {
+  0% { transform: translateX(-130%) skewX(-18deg); }
+  100% { transform: translateX(230%) skewX(-18deg); }
+}
+
+@keyframes sf-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes sf-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes sf-spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sf-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .25; }
+}
+
+/* ---------- section entrances ---------- */
+
+.shop-home .hm-shell > section,
+.shop-home .hm-hero,
+.shop-home .hm-category-strip {
+  animation: sf-fade-up .7s cubic-bezier(.22, .9, .3, 1) both;
+}
+
+.shop-home .hm-shell > section:nth-of-type(1) { animation-delay: .04s; }
+.shop-home .hm-shell > section:nth-of-type(2) { animation-delay: .1s; }
+.shop-home .hm-shell > section:nth-of-type(3) { animation-delay: .16s; }
+.shop-home .hm-shell > section:nth-of-type(4) { animation-delay: .22s; }
+.shop-home .hm-shell > section:nth-of-type(5) { animation-delay: .28s; }
+.shop-home .hm-shell > section:nth-of-type(n + 6) { animation-delay: .32s; }
+
+/* On browsers that support it, sections reveal as they scroll into view instead. */
+@supports (animation-timeline: view()) {
+  .shop-home .hm-shell > section {
+    animation: sf-fade-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 24%;
+  }
+}
+
+/* ---------- product cards ---------- */
+
+.hm-product {
+  transition: transform .32s cubic-bezier(.22, .9, .3, 1), box-shadow .32s ease, border-color .32s ease;
+  will-change: transform;
+}
+
+.hm-product:hover {
+  transform: translateY(-8px) scale(1.012);
+  border-color: #d7c3f8;
+  box-shadow: 0 26px 46px rgba(60, 25, 110, .18);
+}
+
+.hm-product-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .5) 50%, transparent 65%);
+  transform: translateX(-130%) skewX(-18deg);
+  pointer-events: none;
+}
+
+.hm-product:hover .hm-product-media::after { animation: sf-shine .85s ease; }
+
+.hm-product-media img {
+  transition: transform .7s cubic-bezier(.22, .9, .3, 1), filter .4s ease;
+}
+
+.hm-product:hover .hm-product-media img { transform: scale(1.08); }
+
+.hm-product-badge { transition: transform .3s ease; }
+.hm-product:hover .hm-product-badge { transform: translateY(-2px) scale(1.04); }
+
+.hm-product-save { transition: transform .25s ease, background .25s ease, color .25s ease; }
+.hm-product-save:hover { transform: scale(1.14); }
+.hm-product-save.saved { animation: sf-pop-in .35s ease; }
+
+.hm-add {
+  position: relative;
+  overflow: hidden;
+  transition: transform .2s ease, box-shadow .2s ease, background .25s ease;
+}
+
+.hm-add::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .38), transparent);
+  transform: translateX(-160%);
+  pointer-events: none;
+}
+
+.hm-add:hover:not(:disabled)::before { animation: sf-shine .8s ease; }
+.hm-add:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(76, 29, 149, .28); }
+.hm-add:active:not(:disabled) { transform: scale(.97); }
+
+.hm-product:nth-child(1) { animation: sf-fade-up .6s cubic-bezier(.22, .9, .3, 1) both; }
+.hm-product:nth-child(2) { animation: sf-fade-up .6s .05s cubic-bezier(.22, .9, .3, 1) both; }
+.hm-product:nth-child(3) { animation: sf-fade-up .6s .1s cubic-bezier(.22, .9, .3, 1) both; }
+.hm-product:nth-child(4) { animation: sf-fade-up .6s .15s cubic-bezier(.22, .9, .3, 1) both; }
+.hm-product:nth-child(5) { animation: sf-fade-up .6s .2s cubic-bezier(.22, .9, .3, 1) both; }
+.hm-product:nth-child(n + 6) { animation: sf-fade-up .6s .25s cubic-bezier(.22, .9, .3, 1) both; }
+
+/* ---------- nearby map ---------- */
+
+.hm-map-pin { transition: transform .25s ease, box-shadow .25s ease, background .25s ease; }
+.hm-map-pin:hover {
+  transform: rotate(-45deg) scale(1.22);
+  background: #7c3aed;
+  box-shadow: 0 12px 22px rgba(60, 22, 115, .45);
+}
+
+.hm-map-you {
+  animation: sf-pulse-ring 2.4s ease-out infinite;
+}
+
+.hm-map-card { animation: sf-pop-in .6s .35s cubic-bezier(.22, .9, .3, 1) both; }
+
+.hm-vendor-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+
+.hm-vendor-row:hover { transform: translateX(3px); }
+.hm-vendor-row:active { transform: scale(.99); }
+
+.hm-nearby-products { animation: sf-fade-up .55s cubic-bezier(.22, .9, .3, 1) both; }
+
+/* ---------- nav / buttons ---------- */
+
+.hm-brand-mark,
+.hm-nearby-pin {
+  transition: transform .35s cubic-bezier(.22, .9, .3, 1);
+}
+
+.hm-brand:hover .hm-brand-mark,
+.hm-nearby-pin:hover { transform: rotate(-10deg) scale(1.06); }
+
+.hm-nearby-pin { animation: sf-float 4.5s ease-in-out infinite; }
+
+.hm-nearby-action,
+.hm-shop-now,
+.hm-view-all,
+.hm-hero-cta {
+  transition: transform .22s ease, box-shadow .22s ease, background .25s ease;
+}
+
+.hm-nearby-action:hover,
+.hm-hero-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(76, 29, 149, .3);
+}
+
+.hm-view-all span { display: inline-block; transition: transform .25s ease; }
+.hm-view-all:hover span { transform: translateX(5px); }
+
+.hm-category-strip a,
+.hm-cats a,
+.hm-cat {
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+
+.hm-category-strip a:hover { transform: translateY(-4px); }
+
+.hm-promo img { transition: transform .8s cubic-bezier(.22, .9, .3, 1); }
+.hm-promo:hover img { transform: scale(1.06); }
+
+/* ---------- partners marquee ---------- */
+
+.hm-partner-track {
+  animation: sf-marquee 26s linear infinite;
+}
+
+.hm-partners:hover .hm-partner-track { animation-play-state: paused; }
+
+/* ---------- shared page motion ---------- */
+
+.service-hero {
+  background-size: 180% 180%;
+  animation: sf-gradient 16s ease infinite;
+}
+
+.auth-submit,
+.service-submit,
+.checkout-button,
+.google-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-submit::after,
+.service-submit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, .35) 50%, transparent 60%);
+  transform: translateX(-140%);
+  pointer-events: none;
+}
+
+.auth-submit:hover:not(:disabled)::after,
+.service-submit:hover:not(:disabled)::after { animation: sf-shine .9s ease; }
+
+/* ---------- respect the visitor's preference ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,104 @@
+.human-check {
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid #e6d9f8;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #fbf7ff, #f5ecff);
+}
+
+.human-check.is-verified {
+  border-color: #b7e3c6;
+  background: linear-gradient(120deg, #f4fdf7, #ecfbf1);
+}
+
+.human-check-head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 11px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.human-check-head:disabled { cursor: progress; opacity: .75; }
+
+.human-check-box {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid #c9b4ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.human-check-head:hover .human-check-box { border-color: #8b5cf6; }
+
+.is-verified .human-check-box {
+  border-color: #16a34a;
+  background: #16a34a;
+  animation: sf-pop-in .3s ease;
+}
+
+.human-check-copy { display: grid; gap: 2px; min-width: 0; }
+.human-check-copy strong { color: #2a1346; font-size: 12.5px; font-weight: 700; }
+.human-check-copy small { color: #7a6a92; font-size: 10.5px; line-height: 1.4; }
+.is-verified .human-check-copy strong { color: #15803d; }
+
+.human-check-badge {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 15px;
+  box-shadow: 0 4px 12px rgba(76, 29, 149, .1);
+}
+
+.human-check-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 11px;
+  animation: sf-fade-in .25s ease both;
+}
+
+.human-check-tile {
+  display: grid;
+  place-items: center;
+  padding: 9px 0;
+  border: 1px solid #e2d3f7;
+  border-radius: 11px;
+  background: #fff;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.human-check-tile:hover {
+  transform: translateY(-2px) scale(1.04);
+  border-color: #a78bfa;
+  box-shadow: 0 8px 16px rgba(76, 29, 149, .14);
+}
+
+.human-check-tile:active { transform: scale(.96); }
+
+.human-check-error {
+  margin: 10px 0 0;
+  color: #b42318;
+  font-size: 11px;
+  line-height: 1.45;
+}
