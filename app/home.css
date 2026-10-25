@@ -17,9 +17,9 @@
 }
 
 .hm-shell {
-  width: min(1240px, 100%);
+  width: min(1480px, 100%);
   margin: 0 auto;
-  padding: 0 clamp(14px, 2.4vw, 28px);
+  padding: 0 clamp(14px, 1.8vw, 22px);
 }
 
 /* ---------- header ---------- */
