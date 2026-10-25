@@ -86,7 +86,7 @@ async function buildSummary(uid: string, code: string) {
         createdAt: new Date(toMillis(order.createdAt) || Date.now()).toISOString(),
       }))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 20),
+      .slice(0, 60),
     minPayoutMinor: AFFILIATE_MIN_PAYOUT_MINOR,
   };
 }

@@ -5,6 +5,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
 import "../../requests.css";
+import "../../affiliate/affiliate.css";
 
 type Affiliate = {
   uid: string;
