@@ -23,7 +23,14 @@ export async function GET(request: Request) {
   try {
     const snapshot = await adminDb().collection("users").doc(user.uid).get();
     if (!snapshot.exists) return jsonError("Complete account setup to continue.", 404);
-    return Response.json({ profile: snapshot.data() });
+    const profile = snapshot.data();
+    // The join date is owned by the account record, not by the page.
+    const createdMillis = (profile?.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ??
+      Number(user.auth_time) * 1000;
+    return Response.json({
+      profile,
+      memberSince: createdMillis ? new Date(createdMillis).toISOString() : null,
+    }, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {
     console.error("Could not load the account profile.", error);
     return jsonError("We could not load your account.", 500);

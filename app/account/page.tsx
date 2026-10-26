@@ -6,6 +6,7 @@ import { onAuthStateChanged, sendPasswordResetEmail, signOut, type User } from "
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
+import { readFavourites } from "@/app/components/marketplace-product";
 import "./account.css";
 
 type AccountRole = "buyer" | "vendor" | "supplier";
@@ -32,6 +33,14 @@ type BuyerOrder = {
   paymentStatus: string;
   paymentAuthorizationUrl?: string;
   createdAt?: string;
+};
+
+type OrderSummary = {
+  total: number;
+  active: number;
+  delivered: number;
+  paid: number;
+  awaitingPayment: number;
 };
 
 type IconName = "user" | "mail" | "phone" | "pin" | "clock" | "basket" | "check" | "star" | "receipt" | "gear" | "lock" | "heart" | "sparkle" | "signout" | "headset" | "camera";
@@ -68,8 +77,6 @@ const roleLabels: Record<AccountRole, string> = {
   vendor: "Vendor",
   supplier: "Supplier",
 };
-
-const mistakes = ["cancelled", "refunded"];
 
 function formatOrderMoney(amountMinor: number, currency: string) {
   return new Intl.NumberFormat("en-NG", {
@@ -114,6 +121,9 @@ export default function AccountPage() {
   const [ordersError, setOrdersError] = useState("");
   const [payingOrderId, setPayingOrderId] = useState("");
   const [orderNotice, setOrderNotice] = useState("");
+  const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
+  const [memberSince, setMemberSince] = useState<string | null>(null);
+  const [savedCount, setSavedCount] = useState(0);
 
   /**
    * Loads the stored profile for a signed-in customer. A 401 usually means the
@@ -143,6 +153,7 @@ export default function AccountPage() {
       if (!response.ok) throw new Error(result.error || "We could not load your account details.");
       const accountProfile = result.profile as AccountProfile;
       setProfile(accountProfile);
+      setMemberSince(typeof result.memberSince === "string" ? result.memberSince : null);
       setPhone(accountProfile.phone ?? "");
       setLocation(accountProfile.location ?? "");
       return accountProfile;
@@ -179,6 +190,7 @@ export default function AccountPage() {
           }
           previousPayableOrderIds = nextPayableOrderIds;
           setOrders(nextOrders);
+          setOrderSummary((result.summary as OrderSummary | undefined) ?? null);
         }
       } catch (reason) {
         if (active) setOrdersError(reason instanceof Error ? reason.message : "Could not load your orders.");
@@ -208,6 +220,10 @@ export default function AccountPage() {
       if (orderRefreshInterval !== undefined) window.clearInterval(orderRefreshInterval);
     };
   }, [router, loadProfile]);
+
+  useEffect(() => {
+    setSavedCount(readFavourites().length);
+  }, []);
 
   useEffect(() => {
     const shouldFocusOrders = new URLSearchParams(window.location.search).get("orders") === "1";
@@ -320,8 +336,12 @@ export default function AccountPage() {
   const email = profile?.email || user.email || "Email unavailable";
   const role = profile?.role;
   const initial = displayName.slice(0, 1).toUpperCase();
-  const activeOrders = orders.filter((order) => !mistakes.includes(order.status.toLowerCase()) && order.status !== "Delivered").length;
-  const deliveredOrders = orders.filter((order) => order.status === "Delivered").length;
+  const activeOrders = orderSummary?.active ?? 0;
+  const deliveredOrders = orderSummary?.delivered ?? 0;
+  const totalOrders = orderSummary?.total ?? orders.length;
+  const joinedLabel = memberSince
+    ? new Date(memberSince).toLocaleDateString("en-NG", { month: "short", year: "numeric" })
+    : memberSinceLabel(user);
   const buyer = profile?.role === "buyer";
 
   return (
@@ -422,19 +442,19 @@ export default function AccountPage() {
             <ul className="acct-stats">
               <li>
                 <span className="acct-stat-icon is-violet"><Icon name="basket" /></span>
-                <div><small>Total orders</small><strong>{orders.length}</strong><em>{activeOrders > 0 ? `${activeOrders} in progress` : "All caught up"}</em></div>
+                <div><small>Total orders</small><strong>{totalOrders}</strong><em>{activeOrders > 0 ? `${activeOrders} in progress` : "All caught up"}</em></div>
               </li>
               <li>
                 <span className="acct-stat-icon is-green"><Icon name="check" /></span>
-                <div><small>Delivered</small><strong>{deliveredOrders}</strong><em>{orders.length ? "Received" : "No orders yet"}</em></div>
+                <div><small>Delivered</small><strong>{deliveredOrders}</strong><em>{totalOrders ? "Received" : "No orders yet"}</em></div>
               </li>
               <li>
                 <span className="acct-stat-icon is-amber"><Icon name="star" /></span>
-                <div><small>Saved items</small><strong><Link href="/favorites">View</Link></strong><em>Your favourites</em></div>
+                <div><small>Saved items</small><strong><Link href="/favorites">{savedCount}</Link></strong><em>{savedCount ? "Your favourites" : "Nothing saved yet"}</em></div>
               </li>
               <li>
                 <span className="acct-stat-icon is-blue"><Icon name="clock" /></span>
-                <div><small>Member since</small><strong>{memberSinceLabel(user)}</strong><em>{role ? roleLabels[role] : "Account"}</em></div>
+                <div><small>Member since</small><strong>{joinedLabel}</strong><em>{role ? roleLabels[role] : "Account"}</em></div>
               </li>
             </ul>
 
@@ -491,7 +511,7 @@ export default function AccountPage() {
                       <div><dt><Icon name="mail" /> Email address</dt><dd>{email}</dd></div>
                       <div><dt><Icon name="phone" /> Phone number</dt><dd>{profile.phone || "Not provided"}</dd></div>
                       <div><dt><Icon name="pin" /> {buyer ? "Delivery address" : "Business location"}</dt><dd>{profile.location || "Not provided"}</dd></div>
-                      <div><dt><Icon name="clock" /> Member since</dt><dd>{memberSinceLabel(user)}</dd></div>
+                      <div><dt><Icon name="clock" /> Member since</dt><dd>{joinedLabel}</dd></div>
                       {role !== "buyer" && (
                         <div><dt><Icon name="check" /> Business verification</dt><dd className="acct-capitalise">{verificationLabel(profile)}</dd></div>
                       )}

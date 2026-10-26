@@ -8,6 +8,21 @@ import { AFFILIATE_COOKIE, isAffiliateCode, normaliseAffiliateCode } from "@/lib
 
 type RequestedItem = { productId: string; quantity: number };
 
+const closedStatuses = ["cancelled", "refunded"];
+
+/** Order counters for the buyer's account page, worked out once on the server. */
+function summariseOrders(orders: Record<string, unknown>[]) {
+  const summary = { total: orders.length, active: 0, delivered: 0, paid: 0, awaitingPayment: 0 };
+  for (const order of orders) {
+    const status = String(order.status ?? "");
+    if (status === "Delivered") summary.delivered += 1;
+    else if (!closedStatuses.includes(status.toLowerCase())) summary.active += 1;
+    if (order.paymentStatus === "paid") summary.paid += 1;
+    if (status === "Awaiting buyer payment" && order.paymentStatus !== "paid") summary.awaitingPayment += 1;
+  }
+  return summary;
+}
+
 export async function GET(request: Request) {
   const user = await authenticatedUser(request);
   if (!user) return jsonError("Sign in to view orders.", 401);
@@ -36,7 +51,10 @@ export async function GET(request: Request) {
       } = order;
       return sellerOrder;
     });
-    return Response.json({ orders });
+    return Response.json(
+      { orders, summary: summariseOrders(orders) },
+      { headers: { "cache-control": "private, no-store" } },
+    );
   } catch (error) {
     console.error("Could not load SureFood orders.", error);
     return jsonError("We could not load orders.", 500);

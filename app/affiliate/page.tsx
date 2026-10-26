@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
-import { AFFILIATE_COMMISSION_RATE, AFFILIATE_MIN_PAYOUT_MINOR } from "@/lib/affiliates";
 import "./affiliate.css";
 
 type Payout = {
@@ -40,6 +39,22 @@ type Summary = {
 };
 
 type Section = "dashboard" | "links" | "promotions" | "earnings" | "referrals" | "analytics" | "payouts" | "settings";
+
+type SharePage = { name: string; copy: string; href: string };
+type Campaign = { id: string; title: string; copy: string; endsAt: string | null };
+type Tactic = { title: string; copy: string };
+
+/** Programme terms and shareable pages come from /api/affiliate/programme. */
+type Programme = {
+  commissionRate: number;
+  minPayoutMinor: number;
+  attributionDays: number;
+  currency: string;
+  supportEmail: string;
+  rules: string[];
+  tactics: Tactic[];
+  sharePages: SharePage[];
+};
 
 type IconName =
   | "home" | "link" | "megaphone" | "wallet" | "users" | "chart" | "card" | "gear"
@@ -83,13 +98,8 @@ const navItems: { key: Section; label: string; icon: IconName }[] = [
   { key: "settings", label: "Settings", icon: "gear" },
 ];
 
-const sharePages = [
-  { name: "Seasonal picks", copy: "Fresh, natural and in season — the section shoppers open most.", href: "/#hm-products", hash: "#hm-products" },
-  { name: "Local farmers", copy: "Customers who want food grown close to home.", href: "/#hm-vendors", hash: "#hm-vendors" },
-  { name: "Quality picks", copy: "Everything that passes our freshness and safety checks.", href: "/#hm-about", hash: "#hm-about" },
-];
-
 function money(minor: number) {
+  if (!Number.isFinite(minor)) return "—";
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(minor / 100);
 }
 
@@ -206,6 +216,8 @@ export default function AffiliatePage() {
   const [range, setRange] = useState(7);
   const [search, setSearch] = useState("");
   const [payoutForm, setPayoutForm] = useState({ bankDetails: "", note: "" });
+  const [programme, setProgramme] = useState<Programme | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
   const loadSummary = useCallback(async (currentUser: User) => {
     setLoading(true);
@@ -236,6 +248,23 @@ export default function AffiliatePage() {
     });
   }, [loadSummary]);
 
+  // Rates, payout terms, rules and shareable pages are served by the API.
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/affiliate/programme", { signal: AbortSignal.timeout(15_000) });
+        const result = await response.json();
+        if (!active || !response.ok) return;
+        setProgramme(result.programme as Programme);
+        setCampaigns(Array.isArray(result.campaigns) ? (result.campaigns as Campaign[]) : []);
+      } catch (reason) {
+        console.error("Could not load the affiliate programme.", reason);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
   const code = summary?.affiliate?.code ?? "";
   const link = useMemo(() => {
     if (!code) return "";
@@ -251,9 +280,15 @@ export default function AffiliatePage() {
   const current = windowTotal(orders, 7, 0);
   const growth = previous > 0 ? (current - previous) / previous : current > 0 ? 1 : 0;
   const conversion = stats && stats.referredOrders > 0 ? stats.paidOrders / stats.referredOrders : 0;
-  const minPayout = summary?.minPayoutMinor ?? AFFILIATE_MIN_PAYOUT_MINOR;
-  const canRequest = Boolean(stats && stats.availableMinor >= minPayout);
-  const rate = summary?.affiliate?.commissionRate ?? AFFILIATE_COMMISSION_RATE;
+  const minPayout = summary?.minPayoutMinor ?? programme?.minPayoutMinor ?? 0;
+  const canRequest = Boolean(stats && minPayout > 0 && stats.availableMinor >= minPayout);
+  const rate = summary?.affiliate?.commissionRate ?? programme?.commissionRate ?? 0;
+  const ratePercent = Math.round(rate * 100);
+  const sharePages = programme?.sharePages ?? [];
+  const rules = programme?.rules ?? [];
+  const tactics = programme?.tactics ?? [];
+  const supportEmail = programme?.supportEmail ?? "";
+  const attributionDays = programme?.attributionDays ?? 0;
 
   async function join() {
     if (!user) return;
@@ -270,6 +305,18 @@ export default function AffiliatePage() {
       setError(reason instanceof Error ? reason.message : "Could not join the affiliate programme.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Any page of the shop, with this affiliate's code attached. */
+  function trackedUrl(href: string) {
+    if (!code) return "";
+    try {
+      const url = new URL(href, window.location.origin);
+      url.searchParams.set("ref", code);
+      return url.toString();
+    } catch {
+      return "";
     }
   }
 
@@ -504,7 +551,7 @@ export default function AffiliatePage() {
                       <li><button type="button" onClick={() => setSection("links")}><span className="affd-quick-icon"><Icon name="link" /></span><span><strong>Your affiliate link</strong><small>Copy and share it anywhere</small></span><em aria-hidden="true">›</em></button></li>
                       <li><button type="button" onClick={() => setSection("promotions")}><span className="affd-quick-icon"><Icon name="megaphone" /></span><span><strong>Ready-to-share pages</strong><small>Links to the pages shoppers open</small></span><em aria-hidden="true">›</em></button></li>
                       <li><button type="button" onClick={() => setSection("earnings")}><span className="affd-quick-icon"><Icon name="wallet" /></span><span><strong>Earnings breakdown</strong><small>Where your commission came from</small></span><em aria-hidden="true">›</em></button></li>
-                      <li><a href="mailto:support@surefoodz.com"><span className="affd-quick-icon"><Icon name="headset" /></span><span><strong>Support</strong><small>Get help when you need it</small></span><em aria-hidden="true">›</em></a></li>
+                      <li><a href={`mailto:${supportEmail}`}><span className="affd-quick-icon"><Icon name="headset" /></span><span><strong>Support</strong><small>Get help when you need it</small></span><em aria-hidden="true">›</em></a></li>
                     </ul>
                   </section>
                 </aside>
@@ -521,7 +568,7 @@ export default function AffiliatePage() {
                     <ul className="affd-ticks is-inline">
                       <li>Unique tracking link</li>
                       <li>Real-time earnings</li>
-                      <li>Lifetime cookies</li>
+                      <li>{attributionDays}-day cookie</li>
                     </ul>
                     <button className="affd-cta" type="button" onClick={() => void copy(link, "links-hero")}>{copied === "links-hero" ? "Link copied ✓" : "Copy my link"} <Icon name="arrow" /></button>
                   </div>
@@ -529,7 +576,7 @@ export default function AffiliatePage() {
                 </section>
 
                 <section className="affd-card">
-                  <header className="affd-card-head"><div><h2>Your affiliate link</h2><p>Create and manage the link you share. It credits you for 90 days after the first click.</p></div></header>
+                  <header className="affd-card-head"><div><h2>Your affiliate link</h2><p>Create and manage the link you share. It credits you for {attributionDays} days after the first click.</p></div></header>
                   <div className="affd-link-row">
                     <div className="affd-link-main">
                       <strong>{code}</strong>
@@ -549,11 +596,15 @@ export default function AffiliatePage() {
 
                 <section className="affd-card">
                   <h2 className="affd-h2">Make the link work harder</h2>
-                  <ul className="affd-tips">
-                    <li><strong>Use social media</strong><span>WhatsApp status, Facebook groups and X are where most SureFood orders start.</span></li>
-                    <li><strong>Show the basket</strong><span>Post a photo of what you actually bought — real food converts better than a banner.</span></li>
-                    <li><strong>Share during meal times</strong><span>Late morning and early evening is when people plan what to cook.</span></li>
-                  </ul>
+                  {tactics.length === 0 ? (
+                    <p className="affd-empty-small">Sharing guidance appears here once the programme loads.</p>
+                  ) : (
+                    <ul className="affd-tips">
+                      {tactics.map((tactic) => (
+                        <li key={tactic.title}><strong>{tactic.title}</strong><span>{tactic.copy}</span></li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               </>
             )}
@@ -564,31 +615,50 @@ export default function AffiliatePage() {
                   <div>
                     <span className="affd-eyebrow">Special promotions</span>
                     <h1>More shares,<br /><em>bigger rewards!</em></h1>
-                    <p>There are no bonus campaigns running right now. These ready-made SureFood pages are the ones shoppers open most — share yours and every paid order still earns {Math.round(rate * 100)}%.</p>
+                    <p>{campaigns.length > 0 ? `Bonus campaigns are running right now. Share your link and every paid order earns ${ratePercent}% of the goods value.` : "There are no bonus campaigns running right now."} These ready-to-share SureFood pages are the ones shoppers open most, and every paid order still earns {ratePercent}%.</p>
                     <button className="affd-cta" type="button" onClick={() => void copy(link, "promo")}>{copied === "promo" ? "Link copied ✓" : "Copy my link"} <Icon name="arrow" /></button>
                   </div>
                   <div className="affd-banner-art is-megaphone" aria-hidden="true"><span><Icon name="megaphone" /></span><strong>Share more<br />Earn more</strong></div>
                 </section>
 
-                <div className="affd-split">
+                {campaigns.length > 0 && (
                   <section className="affd-card">
-                    <header className="affd-card-head"><div><h2>Ready-to-share pages</h2><p>Each button copies your personal link to that page.</p></div></header>
+                    <h2 className="affd-h2">Running campaigns</h2>
                     <ul className="affd-promo-list">
-                      {sharePages.map((page) => (
-                        <li key={page.name}>
-                          <span className="affd-promo-mark"><Icon name="spark" /></span>
-                          <div><strong>{page.name}</strong><small>{page.copy}</small></div>
-                          <button type="button" onClick={() => void copy(`${link}${page.hash}`, page.name)}>{copied === page.name ? "Copied ✓" : "Copy link"}</button>
-                          <Link href={page.href} className="affd-promo-open">View <Icon name="arrow" /></Link>
+                      {campaigns.map((campaign) => (
+                        <li key={campaign.id}>
+                          <span className="affd-promo-mark"><Icon name="gift" /></span>
+                          <div><strong>{campaign.title}</strong><small>{campaign.copy}{campaign.endsAt ? ` Ends ${shortDate(campaign.endsAt)}.` : ""}</small></div>
+                          <button type="button" onClick={() => void copy(link, campaign.id)}>{copied === campaign.id ? "Copied ✓" : "Copy link"}</button>
                         </li>
                       ))}
                     </ul>
+                  </section>
+                )}
+
+                <div className="affd-split">
+                  <section className="affd-card">
+                    <header className="affd-card-head"><div><h2>Ready-to-share pages</h2><p>Each button copies your personal link to that page.</p></div></header>
+                    {sharePages.length === 0 ? (
+                      <p className="affd-empty-small">Share pages load from the live catalogue.</p>
+                    ) : (
+                      <ul className="affd-promo-list">
+                        {sharePages.map((page) => (
+                          <li key={page.name}>
+                            <span className="affd-promo-mark"><Icon name="spark" /></span>
+                            <div><strong>{page.name}</strong><small>{page.copy}</small></div>
+                            <button type="button" onClick={() => void copy(trackedUrl(page.href), page.name)}>{copied === page.name ? "Copied ✓" : "Copy link"}</button>
+                            <Link href={page.href} className="affd-promo-open">View <Icon name="arrow" /></Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </section>
 
                   <section className="affd-card affd-promo-stats">
                     <h2 className="affd-h2">Your promotion stats</h2>
                     <div className="affd-tile-grid">
-                      <div><span className="affd-mini-icon is-violet"><Icon name="megaphone" /></span><small>Active campaigns</small><strong>0</strong></div>
+                      <div><span className="affd-mini-icon is-violet"><Icon name="megaphone" /></span><small>Active campaigns</small><strong>{campaigns.length}</strong></div>
                       <div><span className="affd-mini-icon is-green"><Icon name="share" /></span><small>Referred orders</small><strong>{stats?.referredOrders ?? 0}</strong></div>
                       <div><span className="affd-mini-icon is-amber"><Icon name="chart" /></span><small>Conversion</small><strong>{percent(conversion)}</strong></div>
                       <div><span className="affd-mini-icon is-blue"><Icon name="wallet" /></span><small>Commission earned</small><strong>{money(stats?.earnedMinor ?? 0)}</strong></div>
@@ -672,7 +742,7 @@ export default function AffiliatePage() {
 
                 <div className="affd-split is-ref">
                   <section className="affd-card">
-                    <header className="affd-card-head"><div><h2>Your referral link</h2><p>Every order that starts from this link is recorded against your code for 90 days.</p></div></header>
+                    <header className="affd-card-head"><div><h2>Your referral link</h2><p>Every order that starts from this link is recorded against your code for {attributionDays} days.</p></div></header>
                     <div className="affd-link-box">
                       <code>{link}</code>
                       <button type="button" onClick={() => void copy(link, "ref")}>{copied === "ref" ? "Copied ✓" : "Copy"}</button>
@@ -853,12 +923,13 @@ export default function AffiliatePage() {
                     </section>
                     <section className="affd-card">
                       <h2 className="affd-h2">Fair rules</h2>
-                      <ul className="affd-ticks">
-                        <li>Commission is earned on paid orders only, never on cancelled or unpaid ones.</li>
-                        <li>Your own orders never earn commission.</li>
-                        <li>Payouts are sent by hand — allow up to five working days.</li>
-                        <li>Accounts that self-refer or send fake traffic are paused.</li>
-                      </ul>
+                      {rules.length === 0 ? (
+                        <p className="affd-empty-small">Programme rules load from the server.</p>
+                      ) : (
+                        <ul className="affd-ticks">
+                          {rules.map((rule) => <li key={rule}>{rule}</li>)}
+                        </ul>
+                      )}
                     </section>
                   </div>
                 </div>
@@ -868,7 +939,7 @@ export default function AffiliatePage() {
             <section className="affd-help-card">
               <span className="affd-help-icon"><Icon name="headset" /></span>
               <div><strong>Need help?</strong><p>Our team handles affiliate payouts, codes and disputes.</p></div>
-              <a className="affd-cta is-small" href="mailto:support@surefoodz.com">Contact support <Icon name="arrow" /></a>
+              <a className="affd-cta is-small" href={`mailto:${supportEmail}`}>Contact support <Icon name="arrow" /></a>
             </section>
           </div>
         </div>
