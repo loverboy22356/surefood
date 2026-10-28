@@ -7,10 +7,11 @@ export type Theme = "light" | "dark";
 
 export const THEME_STORAGE_KEY = "surefood:theme";
 
-function systemTheme(): Theme {
-  if (typeof window === "undefined" || !window.matchMedia) return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
+/**
+ * Light is the default look of the site regardless of the device's dark mode;
+ * dark is only used once a visitor picks it in their profile.
+ */
+const DEFAULT_THEME: Theme = "light";
 
 function storedTheme(): Theme | null {
   try {
@@ -48,22 +49,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const stored = storedTheme();
-    const initial = stored ?? systemTheme();
+    const initial = storedTheme() ?? DEFAULT_THEME;
     setThemeState(initial);
     paintTheme(initial, false);
     setReady(true);
-
-    // Follow the operating system while the visitor has not picked a side.
-    if (stored || !window.matchMedia) return;
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    function onChange(event: MediaQueryListEvent) {
-      const next: Theme = event.matches ? "dark" : "light";
-      setThemeState(next);
-      paintTheme(next, false);
-    }
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
   }, []);
 
   const setTheme = useCallback((next: Theme) => {
