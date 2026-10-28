@@ -199,7 +199,7 @@
 .hm-hero {
   position: relative;
   display: flex;
-  min-height: clamp(430px, 40vw, 520px);
+  min-height: clamp(330px, 28vw, 380px);
   align-items: center;
   overflow: hidden;
   background: #35105d;
@@ -216,7 +216,7 @@
 
 .hm-hero-inner { position: relative; z-index: 2; width: 100%; }
 
-.hm-hero-copy { max-width: 560px; padding: clamp(34px, 4vw, 56px) 0; }
+.hm-hero-copy { max-width: 560px; padding: clamp(24px, 2.6vw, 34px) 0; }
 
 .hm-hero-eyebrow {
   display: inline-flex;
@@ -232,12 +232,12 @@
 }
 
 .hm-hero h1 {
-  margin: 16px 0 12px;
+  margin: 12px 0 10px;
   color: #fff;
   font-family: Manrope, sans-serif;
-  font-size: clamp(33px, 4.4vw, 53px);
+  font-size: clamp(29px, 3.5vw, 43px);
   font-weight: 800;
-  letter-spacing: -1.6px;
+  letter-spacing: -1.4px;
   line-height: 1.04;
 }
 
@@ -245,10 +245,10 @@
 
 .hm-hero-copy > p {
   max-width: 430px;
-  margin: 0 0 22px;
+  margin: 0 0 16px;
   color: rgba(255, 255, 255, .87);
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .hm-hero-search {
@@ -1169,7 +1169,7 @@
   .hm-location { width: 100%; justify-content: center; }
   .hm-icon-button { width: 34px; height: 34px; }
   .hm-avatar { width: 34px; height: 34px; }
-  .hm-hero { min-height: 460px; }
+  .hm-hero { min-height: 340px; }
   .hm-hero-script { display: none; }
   .hm-hero-copy { max-width: 100%; }
   .hm-hero-trust { gap: 10px 16px; }

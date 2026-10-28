@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
@@ -107,6 +108,24 @@ function percent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+/** Short axis labels: ₦0, ₦2.5k, ₦1.2m. */
+function compactMoney(minor: number) {
+  if (!Number.isFinite(minor) || minor <= 0) return "₦0";
+  const naira = minor / 100;
+  if (naira >= 1_000_000) return `₦${(naira / 1_000_000).toFixed(1)}m`;
+  if (naira >= 1_000) return `₦${Math.round(naira / 1_000)}k`;
+  return `₦${Math.round(naira)}`;
+}
+
+function Trend({ value }: { value: number }) {
+  const up = value >= 0;
+  return (
+    <em className={up ? "affd-trend is-up" : "affd-trend is-down"}>
+      {up ? "▲" : "▼"} {Math.abs(Math.round(value * 100))}%
+    </em>
+  );
+}
+
 function shortDate(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
@@ -146,8 +165,8 @@ function windowTotal(orders: ReferredOrder[], fromDaysAgo: number, toDaysAgo: nu
 
 function LineChart({ points, days }: { points: { date: string; commission: number }[]; days: number }) {
   const width = 720;
-  const height = 190;
-  const padding = { top: 16, right: 12, bottom: 26, left: 12 };
+  const height = 210;
+  const padding = { top: 14, right: 14, bottom: 26, left: 46 };
   const max = Math.max(...points.map((point) => point.commission), 1);
   const stepX = (width - padding.left - padding.right) / Math.max(points.length - 1, 1);
   const coords = points.map((point, index) => ({
@@ -167,9 +186,17 @@ function LineChart({ points, days }: { points: { date: string; commission: numbe
             <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[0.25, 0.5, 0.75, 1].map((ratio) => (
-          <line key={ratio} x1={padding.left} x2={width - padding.right} y1={padding.top + (height - padding.top - padding.bottom) * ratio} y2={padding.top + (height - padding.top - padding.bottom) * ratio} stroke="#f0e9f9" strokeWidth="1" />
-        ))}
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          const y = padding.top + (height - padding.top - padding.bottom) * ratio;
+          return (
+            <g key={ratio}>
+              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="#f0e9f9" strokeWidth="1" />
+              <text x={padding.left - 8} y={y + 3} textAnchor="end" fill="#b3a6c6" fontSize="9">
+                {compactMoney(max * (1 - ratio))}
+              </text>
+            </g>
+          );
+        })}
         <path d={area} fill="url(#affdArea)" />
         <path d={line} fill="none" stroke="#7c3aed" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
         {coords.map((coord, index) => (
@@ -218,18 +245,22 @@ export default function AffiliatePage() {
   const [payoutForm, setPayoutForm] = useState({ bankDetails: "", note: "" });
   const [programme, setProgramme] = useState<Programme | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [bellOpen, setBellOpen] = useState(false);
 
   const loadSummary = useCallback(async (currentUser: User) => {
     setLoading(true);
     setError("");
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch("/api/affiliate", { headers: { authorization: `Bearer ${token}` } });
+      const response = await fetch("/api/affiliate", { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not load your affiliate dashboard.");
       setSummary(result);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load your affiliate dashboard.");
+      const timedOut = reason instanceof Error && (reason.name === "TimeoutError" || reason.name === "AbortError");
+      setError(timedOut
+        ? "Your dashboard took too long to load. Check your connection and try again."
+        : reason instanceof Error ? reason.message : "Could not load your affiliate dashboard.");
     } finally {
       setLoading(false);
     }
@@ -253,13 +284,14 @@ export default function AffiliatePage() {
     let active = true;
     void (async () => {
       try {
-        const response = await fetch("/api/affiliate/programme", { signal: AbortSignal.timeout(15_000) });
+        const response = await fetch("/api/affiliate/programme", { signal: AbortSignal.timeout(30_000) });
         const result = await response.json();
         if (!active || !response.ok) return;
         setProgramme(result.programme as Programme);
         setCampaigns(Array.isArray(result.campaigns) ? (result.campaigns as Campaign[]) : []);
       } catch (reason) {
-        console.error("Could not load the affiliate programme.", reason);
+        // The programme terms are optional copy: the dashboard still works without them.
+        console.warn("Could not load the affiliate programme.", reason);
       }
     })();
     return () => { active = false; };
@@ -275,10 +307,50 @@ export default function AffiliatePage() {
   const stats = summary?.stats;
   const orders = useMemo(() => summary?.orders ?? [], [summary]);
   const payouts = useMemo(() => summary?.payouts ?? [], [summary]);
+
+  // The bell shows the affiliate's own money: commissions earned and payouts moving.
+  const notifications = useMemo(() => {
+    const items: { id: string; title: string; body: string; tone: "money" | "info" }[] = [];
+    for (const payout of payouts.slice(0, 2)) {
+      items.push({
+        id: `payout-${payout.id}`,
+        title: payout.status === "paid"
+          ? `Payout of ${money(payout.amountMinor)} sent`
+          : payout.status === "cancelled"
+            ? `Payout of ${money(payout.amountMinor)} cancelled`
+            : `Payout of ${money(payout.amountMinor)} awaiting transfer`,
+        body: `${shortDate(payout.requestedAt)} · ${payout.note || "Bank transfer"}`,
+        tone: "money",
+      });
+    }
+    for (const order of orders.filter((item) => item.commissionMinor > 0).slice(0, 3)) {
+      items.push({
+        id: `order-${order.id}`,
+        title: `You earned ${money(order.commissionMinor)}`,
+        body: `From a ${money(order.subtotalMinor)} order · ${shortDate(order.createdAt)}`,
+        tone: "money",
+      });
+    }
+    return items.slice(0, 5);
+  }, [orders, payouts]);
   const points = useMemo(() => dailySeries(orders, range), [orders, range]);
   const previous = windowTotal(orders, 14, 7);
   const current = windowTotal(orders, 7, 0);
   const growth = previous > 0 ? (current - previous) / previous : current > 0 ? 1 : 0;
+
+  /** The same week-over-week maths, for any per-order measure. */
+  const weeklyDelta = (pick: (order: ReferredOrder) => number) => {
+    const now = Date.now();
+    const week = 7 * 86_400_000;
+    const between = (from: number, to: number) => orders.reduce((total, order) => {
+      const at = new Date(order.createdAt).getTime();
+      return at >= now - from && at < now - to ? total + pick(order) : total;
+    }, 0);
+    const thisWeek = between(week, 0);
+    const lastWeek = between(2 * week, week);
+    if (!lastWeek) return thisWeek > 0 ? 1 : 0;
+    return (thisWeek - lastWeek) / lastWeek;
+  };
   const conversion = stats && stats.referredOrders > 0 ? stats.paidOrders / stats.referredOrders : 0;
   const minPayout = summary?.minPayoutMinor ?? programme?.minPayoutMinor ?? 0;
   const canRequest = Boolean(stats && minPayout > 0 && stats.availableMinor >= minPayout);
@@ -382,6 +454,14 @@ export default function AffiliatePage() {
     </section>
   ) : loading && !summary ? (
     <p className="affd-empty">Loading your affiliate dashboard…</p>
+  ) : error && !summary && user ? (
+    <section className="affd-card affd-join">
+      <h2>We could not load your dashboard</h2>
+      <p>{error}</p>
+      <button className="affd-cta" type="button" onClick={() => void loadSummary(user)} disabled={busy}>
+        Try again <Icon name="arrow" />
+      </button>
+    </section>
   ) : !summary?.affiliate ? (
     <section className="affd-card affd-join">
       <h2>Join the affiliate programme</h2>
@@ -398,15 +478,28 @@ export default function AffiliatePage() {
   ) : null;
 
   if (emptyState) {
-    return (
-      <main className="affd-page">
-        <div className="affd-shell">
-          <aside className="affd-side">
-            <Link className="affd-brand" href="/"><span className="affd-brand-mark"><Icon name="leaf" /></span><span><strong>SureFood</strong><small>Fresh Food · Better Life</small></span></Link>
+    return (      <main className="affd-page">
+      <div className="affd-shell">
+        <aside className="affd-side">
+          <Link className="affd-brand" href="/">
+            <span className="affd-brand-mark"><Icon name="leaf" /></span>
+            <span><strong>SureFood</strong><small>Fresh Food · Better Life</small></span>
+          </Link>
             <Link className="affd-back" href="/">← Back to shop</Link>
           </aside>
           <div className="affd-main">
-            <header className="affd-topbar"><strong>Affiliate programme</strong></header>
+            <header className="affd-header">
+              <form className="affd-search" onSubmit={submitSearch}>
+              <span aria-hidden="true">⌕</span>
+              <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search products, categories, or anything…" aria-label="Search the SureFood shop" />
+            </form>
+            <div className="affd-top-actions">
+              <Link className="affd-account" href="/account">
+                <span className="affd-account-avatar">S</span>
+                <span><strong>Affiliate programme</strong><small>SureFood</small></span>
+              </Link>
+            </div>
+          </header>
             <div className="affd-body">{emptyState}</div>
           </div>
         </div>
@@ -420,7 +513,10 @@ export default function AffiliatePage() {
     <main className="affd-page">
       <div className="affd-shell">
         <aside className="affd-side">
-          <Link className="affd-brand" href="/"><span className="affd-brand-mark"><Icon name="leaf" /></span><span><strong>SureFood</strong><small>Fresh Food · Better Life</small></span></Link>
+<Link className="affd-brand" href="/">
+          <span className="affd-brand-mark"><Icon name="leaf" /></span>
+          <span><strong>SureFood</strong><small>Fresh Food · Better Life</small></span>
+        </Link>
           <nav className="affd-nav" aria-label="Affiliate sections">
             {navItems.map((item) => (
               <button
@@ -439,27 +535,61 @@ export default function AffiliatePage() {
             <span className="affd-side-gift"><Icon name="gift" /></span>
             <strong>Grow together</strong>
             <p>Share SureFood with your network and earn amazing rewards.</p>
-            <button type="button" className="affd-side-button" onClick={() => void copy(link, "side")}>
-              {copied === "side" ? "Link copied ✓" : "Copy my link"}
+            <button type="button" className="affd-side-button" onClick={() => setSection("promotions")}>
+              View promotions <Icon name="arrow" />
             </button>
           </div>
           <Link className="affd-back" href="/">← Back to shop</Link>
         </aside>
 
         <div className="affd-main">
-          <header className="affd-topbar">
+          <header className="affd-header">
             <form className="affd-search" onSubmit={submitSearch}>
-              <span aria-hidden="true">⌕</span>
-              <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search products, categories, or anything…" aria-label="Search the SureFood shop" />
-            </form>
-            <div className="affd-top-actions">
-              <span className="affd-top-title">{activeSection?.label}</span>
-              <Link className="affd-account" href="/account">
-                <span className="affd-account-avatar">{(summary?.affiliate?.name || user?.displayName || "S").slice(0, 1).toUpperCase()}</span>
-                <span><strong>{summary?.affiliate?.name || user?.displayName || "Affiliate"}</strong><small>Affiliate</small></span>
-              </Link>
+            <span aria-hidden="true">⌕</span>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search products, categories, or anything…" aria-label="Search the SureFood shop" />
+          </form>
+          <div className="affd-top-actions">
+            <span className="affd-top-title">{activeSection?.label}</span>
+            <div className="affd-bell-wrap">
+              <button
+                type="button"
+                className={bellOpen ? "affd-bell is-open" : "affd-bell"}
+                aria-label={`Notifications (${notifications.length})`}
+                aria-expanded={bellOpen}
+                onClick={() => setBellOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 15v-4a6 6 0 1 0-12 0v4l-1.5 2.5h15L18 15Zm-7.5 4.5a1.5 1.5 0 0 0 3 0" />
+                </svg>
+                {notifications.length > 0 && <em>{notifications.length}</em>}
+              </button>
+              {bellOpen && (
+                <>
+                  <button type="button" className="affd-bell-scrim" aria-label="Close notifications" onClick={() => setBellOpen(false)} />
+                  <div className="affd-bell-panel" role="dialog" aria-label="Notifications">
+                    <strong>Notifications</strong>
+                    {notifications.length === 0 ? (
+                      <p className="affd-empty-small">Nothing yet. Share your link and your first commission shows up here.</p>
+                    ) : (
+                      <ul>
+                        {notifications.map((note) => (
+                          <li key={note.id}>
+                            <span className={note.tone === "money" ? "affd-note-dot is-money" : "affd-note-dot"} />
+                            <div><strong>{note.title}</strong><small>{note.body}</small></div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-          </header>
+            <Link className="affd-account" href="/account">
+              <span className="affd-account-avatar">{(summary?.affiliate?.name || user?.displayName || "S").slice(0, 1).toUpperCase()}</span>
+              <span><strong>{summary?.affiliate?.name || user?.displayName || "Affiliate"}</strong><small>Affiliate</small></span>
+            </Link>
+          </div>
+        </header>
 
           <div className="affd-body">
             {error && <p className="affd-alert" role="alert">{error}</p>}
@@ -484,12 +614,17 @@ export default function AffiliatePage() {
                   </div>
                   <div className="affd-hero-art" aria-hidden="true">
                     <span className="affd-hero-badge">%</span>
-                    <div className="affd-hero-art-card">
-                      <span className="affd-hero-art-logo"><Icon name="leaf" /></span>
-                      <strong>SureFood</strong>
-                      <small>REFER &amp; EARN</small>
+                    <span className="affd-hero-coin is-a">₦</span>
+                    <span className="affd-hero-coin is-b">₦</span>
+                    <div className="affd-hero-phone">
+                      <span className="affd-hero-phone-notch" />
+                      <div className="affd-hero-art-card">
+                        <span className="affd-hero-art-logo"><Icon name="leaf" /></span>
+                        <strong>SureFood</strong>
+                        <small>REFER &amp; EARN</small>
+                      </div>
                     </div>
-                    <p>Your friend shops → You earn!</p>
+                    <p className="affd-hero-friend">Your friend shops → You earn!</p>
                   </div>
                 </section>
 
@@ -521,10 +656,10 @@ export default function AffiliatePage() {
                     </div>
                   </header>
                   <div className="affd-mini-stats">
-                    <div><span className="affd-mini-icon is-violet"><Icon name="users" /></span><small>Referred orders</small><strong>{stats?.referredOrders ?? 0}</strong></div>
-                    <div><span className="affd-mini-icon is-green"><Icon name="check" /></span><small>Successful orders</small><strong>{stats?.paidOrders ?? 0}</strong></div>
-                    <div><span className="affd-mini-icon is-amber"><Icon name="wallet" /></span><small>Total commission</small><strong>{money(stats?.earnedMinor ?? 0)}</strong></div>
-                    <div><span className="affd-mini-icon is-blue"><Icon name="card" /></span><small>Pending payouts</small><strong>{money(stats?.requestedMinor ?? 0)}</strong></div>
+                    <div><span className="affd-mini-icon is-violet"><Icon name="users" /></span><small>Referred orders</small><strong>{stats?.referredOrders ?? 0}</strong><Trend value={weeklyDelta(() => 1)} /></div>
+                    <div><span className="affd-mini-icon is-green"><Icon name="check" /></span><small>Successful orders</small><strong>{stats?.paidOrders ?? 0}</strong><Trend value={weeklyDelta((order) => (order.commissionMinor > 0 ? 1 : 0))} /></div>
+                    <div><span className="affd-mini-icon is-amber"><Icon name="wallet" /></span><small>Total commission</small><strong>{money(stats?.earnedMinor ?? 0)}</strong><Trend value={weeklyDelta((order) => order.commissionMinor)} /></div>
+                    <div><span className="affd-mini-icon is-blue"><Icon name="card" /></span><small>Pending payouts</small><strong>{money(stats?.requestedMinor ?? 0)}</strong><Trend value={weeklyDelta((order) => order.commissionMinor)} /></div>
                   </div>
                   <LineChart points={points} days={range} />
                 </section>
@@ -548,11 +683,25 @@ export default function AffiliatePage() {
                   <section className="affd-card affd-quick">
                     <h2 className="affd-h2"><Icon name="spark" /> Quick links</h2>
                     <ul>
-                      <li><button type="button" onClick={() => setSection("links")}><span className="affd-quick-icon"><Icon name="link" /></span><span><strong>Your affiliate link</strong><small>Copy and share it anywhere</small></span><em aria-hidden="true">›</em></button></li>
-                      <li><button type="button" onClick={() => setSection("promotions")}><span className="affd-quick-icon"><Icon name="megaphone" /></span><span><strong>Ready-to-share pages</strong><small>Links to the pages shoppers open</small></span><em aria-hidden="true">›</em></button></li>
-                      <li><button type="button" onClick={() => setSection("earnings")}><span className="affd-quick-icon"><Icon name="wallet" /></span><span><strong>Earnings breakdown</strong><small>Where your commission came from</small></span><em aria-hidden="true">›</em></button></li>
+                      <li><Link href="/search"><span className="affd-quick-icon"><Icon name="spark" /></span><span><strong>Featured products</strong><small>Get links to top selling items</small></span><em aria-hidden="true">›</em></Link></li>
+                      <li><button type="button" onClick={() => setSection("promotions")}><span className="affd-quick-icon"><Icon name="megaphone" /></span><span><strong>Banners &amp; creatives</strong><small>Use our ready-to-share pages</small></span><em aria-hidden="true">›</em></button></li>
+                      <li><button type="button" onClick={() => setSection("referrals")}><span className="affd-quick-icon"><Icon name="check" /></span><span><strong>Affiliate guide</strong><small>Learn how to earn more</small></span><em aria-hidden="true">›</em></button></li>
                       <li><a href={`mailto:${supportEmail}`}><span className="affd-quick-icon"><Icon name="headset" /></span><span><strong>Support</strong><small>Get help when you need it</small></span><em aria-hidden="true">›</em></a></li>
                     </ul>
+                  </section>
+
+                  <section className="affd-promo-card">
+                    <div className="affd-promo-copy">
+                      <small>Real food, real impact.</small>
+                      <h2>Help Others Eat Better, Earn More.</h2>
+                      <p>Your voice can bring fresh, healthy food to more people.</p>
+                      <button className="affd-cta is-small" type="button" onClick={() => void copy(link, "promo-card")}>
+                        {copied === "promo-card" ? "Link copied ✓" : "Start sharing"} <Icon name="arrow" />
+                      </button>
+                    </div>
+                    <div className="affd-promo-photo" aria-hidden="true">
+                      <Image src="/images/promo-seasonal-picks.png" alt="" fill sizes="160px" style={{ objectFit: "cover", objectPosition: "84% 50%" }} />
+                    </div>
                   </section>
                 </aside>
               </div>
@@ -789,6 +938,16 @@ export default function AffiliatePage() {
 
             {section === "analytics" && (
               <>
+                <section className="affd-banner is-analytics">
+                  <div>
+                    <span className="affd-eyebrow">Analytics</span>
+                    <h1>See what your<br /><em>links really do</em></h1>
+                    <p>Every order that starts from your link shows up here, so you can put your effort where it pays.</p>
+                    <button className="affd-cta" type="button" onClick={() => void copy(link, "analytics")}>{copied === "analytics" ? "Link copied ✓" : "Copy my link"} <Icon name="arrow" /></button>
+                  </div>
+                  <div className="affd-banner-art is-chart" aria-hidden="true"><span><Icon name="chart" /></span><strong>{percent(conversion)}<br />conversion</strong></div>
+                </section>
+
                 <section className="affd-card">
                   <header className="affd-card-head">
                     <div><h2>Analytics</h2><p>How your link has performed. Numbers come from your referred orders.</p></div>
@@ -841,6 +1000,13 @@ export default function AffiliatePage() {
                     </button>
                   </div>
                 </section>
+
+                <div className="affd-mini-stats">
+                  <div><span className="affd-mini-icon is-green"><Icon name="wallet" /></span><small>Total earned</small><strong>{money(stats?.earnedMinor ?? 0)}</strong></div>
+                  <div><span className="affd-mini-icon is-amber"><Icon name="card" /></span><small>Pending payout</small><strong>{money(stats?.requestedMinor ?? 0)}</strong></div>
+                  <div><span className="affd-mini-icon is-violet"><Icon name="check" /></span><small>Paid out</small><strong>{money(stats?.paidOutMinor ?? 0)}</strong></div>
+                  <div><span className="affd-mini-icon is-blue"><Icon name="chart" /></span><small>Requests made</small><strong>{payouts.length}</strong></div>
+                </div>
 
                 <div className="affd-split">
                   <section className="affd-card">

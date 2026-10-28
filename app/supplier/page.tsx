@@ -543,7 +543,7 @@ export default function SupplierPage() {
           {activeTab === "Dashboard" && (
             <>
               <button type="button" className="vendor-banner" onClick={() => setActiveTab("Bulk Orders")} aria-label="Open bulk orders">
-                <Image src="/images/vendor-bulk-banner.png" alt="Sell in bulk. Grow bigger. Add a bulk product." fill priority sizes="(max-width: 1100px) 100vw, 75vw" />
+                <Image src="/images/supplier-bulk-banner.jpg" alt="Sell in bulk. Grow bigger. Add a bulk product." fill priority sizes="(max-width: 1100px) 100vw, 75vw" />
               </button>
               <div className="vendor-stat-grid">
                 <Metric icon="▦" label="Total Products" value={String(products.length)} trend="Live" note="your catalogue" />
@@ -686,7 +686,7 @@ function InventoryPanel({ products, onRestock }: { products: VendorProduct[]; on
 function BulkOrdersPanel({ orders, onStatusChange, onQuoteDelivery, onAddProduct, onViewOrders }: { orders: SupplierOrder[]; onStatusChange: (orderId: string, status: OrderStatus) => void; onQuoteDelivery: (orderId: string, deliveryFeeMinor: number) => void; onAddProduct: () => void; onViewOrders: () => void }) {
   return (
     <>
-      <button type="button" className="vendor-banner bulk-order-banner" onClick={onAddProduct} aria-label="Add a product to bulk orders"><Image src="/images/vendor-bulk-banner.png" alt="Sell in bulk. Grow bigger. Add a bulk product." fill sizes="(max-width: 1100px) 100vw, 75vw" /></button>
+      <button type="button" className="vendor-banner bulk-order-banner" onClick={onAddProduct} aria-label="Add a product to bulk orders"><Image src="/images/supplier-bulk-banner.jpg" alt="Sell in bulk. Grow bigger. Add a bulk product." fill sizes="(max-width: 1100px) 100vw, 75vw" /></button>
       <div className="vendor-stat-grid"><Metric icon="▣" label="Bulk Orders" value={String(orders.length)} trend="Live" note="all order statuses" /><Metric icon="◷" label="Awaiting fulfillment" value={String(orders.filter((order) => !["Delivered", "Cancelled/Refund"].includes(order.status)).length)} trend="Live" note="open orders" /><Metric icon="✓" label="Delivered Orders" value={String(orders.filter((order) => order.status === "Delivered").length)} trend="Live" note="completed orders" /><Metric icon="₦" label="Delivered Revenue" value={currency.format(orders.filter((order) => order.status === "Delivered").reduce((sum, order) => sum + order.total, 0))} trend="Live" note="delivered orders only" /></div>
       <section className="vendor-panel"><div className="vendor-panel-heading"><div><h2>Bulk order management</h2><p>Set your delivery fee, then prepare orders after the buyer pays.</p></div><button type="button" className="vendor-outline-button" onClick={onViewOrders}>All order statuses →</button></div><div className="bulk-benefits"><span>✓ Quote seller-handled delivery</span><span>✓ Buyer pays securely through Paystack</span><span>✓ Prepare and mark paid orders ready</span></div><OrdersTable orders={orders} onStatusChange={onStatusChange} onQuoteDelivery={onQuoteDelivery} onView={onViewOrders} /></section>
     </>

@@ -886,3 +886,23 @@ a { color: inherit; text-decoration: none; }
   .locale-switcher { right: 12px; bottom: 12px; }
   .locale-trigger { padding: 8px 12px; font-size: 10px; }
 }
+
+/* ---- Admin staff sign-in (themed, so dark mode follows the rest of the site) ---- */
+.admin-landing-page { max-width: 760px; margin: 40px auto; padding: 24px; }
+.admin-auth-stack { display: grid; gap: 20px; }
+.admin-auth-brand { display: inline-flex; align-items: center; gap: 8px; color: #492f6b; font-size: 28px; font-weight: 700; }
+.admin-auth-brand-soft { color: #624e7e; }
+.admin-auth-mark { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 10px; background: #e5ddee; }
+.admin-auth-hero { padding: 28px; border: 1px solid #d9d7d2; border-radius: 18px; background: #f4f3f5; }
+.admin-auth-kicker { margin: 0; color: #6d627a; font-size: 12px; letter-spacing: 1.8px; text-transform: uppercase; }
+.admin-auth-hero h1 { margin: 12px 0; font-size: 48px; line-height: 1.1; }
+.admin-auth-lede { margin: 0; color: #494253; font-size: 18px; }
+.admin-auth-form { display: grid; gap: 14px; }
+.admin-auth-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.admin-auth-mode { padding: 12px; border: 1px solid #d9d2e1; border-radius: 8px; background: #fff; color: #32214a; font: inherit; cursor: pointer; }
+.admin-auth-mode[data-active="true"] { border-color: #462d6a; background: #462d6a; color: #fff; }
+.admin-auth-input { padding: 14px; border: 1px solid #d0cbd5; border-radius: 8px; background: #fff; color: #2d2637; font: inherit; }
+.admin-auth-input::placeholder { color: #8e8798; }
+.admin-auth-submit { padding: 16px 18px; border: 0; border-radius: 12px; background: #462d6a; color: #fff; font: inherit; font-size: 18px; cursor: pointer; }
+.admin-auth-submit:disabled { opacity: .7; cursor: progress; }
+.admin-auth-error { margin: 0; padding: 12px; border: 1px solid #f4b0b0; border-radius: 10px; background: #ffe5e5; color: #a42323; }

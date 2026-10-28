@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
 import { readFavourites } from "@/app/components/marketplace-product";
+import { ThemeToggle } from "@/app/components/theme-toggle";
 import "./account.css";
 
 type AccountRole = "buyer" | "vendor" | "supplier";
@@ -587,6 +588,7 @@ export default function AccountPage() {
                     <li><Link href="/favorites"><span className="acct-settings-icon"><Icon name="heart" /></span><span><strong>Saved items</strong><small>Products you love</small></span><em aria-hidden="true">›</em></Link></li>
                     <li><Link href="/affiliate"><span className="acct-settings-icon"><Icon name="sparkle" /></span><span><strong>Affiliate programme</strong><small>Earn on every referral</small></span><em aria-hidden="true">›</em></Link></li>
                     <li><Link href="/pay-later"><span className="acct-settings-icon"><Icon name="clock" /></span><span><strong>Pay later</strong><small>Buy now, pay on credit</small></span><em aria-hidden="true">›</em></Link></li>
+                    <ThemeToggle />
                     <li>
                       <button className="acct-signout" type="button" onClick={() => void logOut()} disabled={signingOut}>
                         <span className="acct-settings-icon is-danger"><Icon name="signout" /></span>

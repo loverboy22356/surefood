@@ -17,3 +17,5 @@ firebase-service-account*.json
 .next-dev.log
 
 *.zip
+
+shots/

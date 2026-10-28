@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
 import { useLocale } from "@/app/components/locale-provider";
@@ -136,6 +136,12 @@ export default function Home() {
   const [locatedCity, setLocatedCity] = useState("");
   const [myCoords, setMyCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [nearbyFocus, setNearbyFocus] = useState("");
+  // A live GPS fix: once the buyer allows location the browser keeps reporting it,
+  // so travelling to another city re-filters the nearby sellers without a reload.
+  const locationWatchRef = useRef<number | null>(null);
+  const lastFixRef = useRef<{ lat: number; lon: number } | null>(null);
+  // Set when the device reports a genuinely new place; the naming effect takes it from here.
+  const [movedFix, setMovedFix] = useState<{ lat: number; lon: number } | null>(null);
   const itemCount = cart.reduce((total, line) => total + line.quantity, 0);
   const subtotal = cart.reduce((total, line) => total + line.product.price * line.quantity, 0);
   const cartCurrency = cart[0]?.product.currency ?? "NGN";
@@ -283,10 +289,32 @@ export default function Home() {
     try {
       const savedCoords = JSON.parse(window.localStorage.getItem("surefood-coords") ?? "null") as { lat?: unknown; lon?: unknown } | null;
       if (savedCoords && Number.isFinite(Number(savedCoords.lat)) && Number.isFinite(Number(savedCoords.lon))) {
-        setMyCoords({ lat: Number(savedCoords.lat), lon: Number(savedCoords.lon) });
+        const restored = { lat: Number(savedCoords.lat), lon: Number(savedCoords.lon) };
+        setMyCoords(restored);
+        // Compare the next live fix against the saved one, so a buyer who moved
+        // since their last visit gets their new place named straight away.
+        lastFixRef.current = restored;
+        // Permission was granted on an earlier visit, so keep the fix live.
+        startLocationWatch();
       }
     } catch (reason) {
       console.error("Could not restore the saved location fix.", reason);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!movedFix) return;
+    setMovedFix(null);
+    // A city the buyer picked by hand outranks the device wandering.
+    if (chosenCity) return;
+    void nameLocatedPlace(movedFix.lat, movedFix.lon, false, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movedFix, chosenCity]);
+
+  useEffect(() => () => {
+    if (locationWatchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(locationWatchRef.current);
+      locationWatchRef.current = null;
     }
   }, []);
 
@@ -512,7 +540,9 @@ export default function Home() {
         window.clearTimeout(guard);
         const fix = { lat: position.coords.latitude, lon: position.coords.longitude };
         setMyCoords(fix);
+        lastFixRef.current = fix;
         window.localStorage.setItem("surefood-coords", JSON.stringify(fix));
+        startLocationWatch();
         void nameLocatedPlace(fix.lat, fix.lon, autoOpen);
       },
       () => {
@@ -524,9 +554,30 @@ export default function Home() {
     );
   }
 
+  /** Keeps the fix live: moving to a new place moves the nearby sellers with you. */
+  function startLocationWatch() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (locationWatchRef.current !== null) return;
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const fix = { lat: position.coords.latitude, lon: position.coords.longitude };
+        const previous = lastFixRef.current;
+        lastFixRef.current = fix;
+        setMyCoords(fix);
+        window.localStorage.setItem("surefood-coords", JSON.stringify(fix));
+        if (!previous) return;
+        // Anything under a kilometre is GPS drift, not a real move.
+        if (distanceKm(previous, fix) < 1) return;
+        setMovedFix(fix);
+      },
+      () => {},
+      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 30_000 },
+    );
+  }
+
   /** Turns a GPS fix into a place name, so the label never guesses a city. */
-  async function nameLocatedPlace(latitude: number, longitude: number, autoOpen = false) {
-    setLocationNotice("Naming your location…");
+  async function nameLocatedPlace(latitude: number, longitude: number, autoOpen = false, quiet = false) {
+    if (!quiet) setLocationNotice("Naming your location…");
     try {
       const response = await fetch(`/api/location?lat=${latitude}&lon=${longitude}`, {
         signal: AbortSignal.timeout(12_000),
@@ -561,7 +612,9 @@ export default function Home() {
           }, 220);
         }
       }
-      setLocationNotice(`Location on. Nearby sellers around ${city || label} are listed first.`);
+      setLocationNotice(quiet
+        ? `You have moved — nearby sellers around ${city || label} are listed first now.`
+        : `Location on. Nearby sellers around ${city || label} are listed first.`);
     } catch (reason) {
       setLocationNotice(reason instanceof Error ? reason.message : "We could not name your location.");
     }
@@ -744,6 +797,7 @@ export default function Home() {
             <Link href="/signup?role=supplier">Suppliers</Link>
             <Link href="#hm-categories">Categories</Link>
             <Link href="#hm-about">About Us</Link>
+            <Link href="/affiliate">Affiliate</Link>
             <Link href="#hm-contact">Contact</Link>
           </nav>
           <div className="hm-location-wrap">
