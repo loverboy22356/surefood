@@ -71,7 +71,7 @@ export async function POST(request: Request) {
         : "Vendor resubmitted verification documents for staff review.",
     });
     await batch.commit();
-    return Response.json({ submittedAt: now.toDate().toISOString(), message: "Your documents are submitted. SureFood staff can now review your application." });
+    return Response.json({ submittedAt: now.toDate().toISOString(), message: "Your documents are submitted. Sure Foodz staff can now review your application." });
   } catch (error) {
     console.error("Could not resubmit business verification.", error);
     return jsonError("We could not submit your updated documents. Please try again.", 500);

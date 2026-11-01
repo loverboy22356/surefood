@@ -18,6 +18,7 @@ export type MarketplaceProduct = {
   currency?: string;
   sellerId?: string;
   sellerName?: string;
+  sellerLogoUrl?: string;
   sellerRole?: string;
   sellerVerified?: boolean;
   sellerCity?: string;
@@ -178,7 +179,7 @@ export function ProductDetailsDialog({
           <div className="pm-seller-head">
             <span className="pm-seller-mark" aria-hidden="true">🌿</span>
             <span className="pm-seller-name">
-              <strong>{product.sellerName || "SureFood"}</strong>
+              <strong>{product.sellerName || "Sure Foodz"}</strong>
               {product.sellerVerified && <i aria-label="Verified">✔</i>}
               <small>Quality products, always.</small>
             </span>
@@ -189,7 +190,7 @@ export function ProductDetailsDialog({
           <h2 className="pm-product-name" id="product-details-heading">{product.name}</h2>
           <p className="product-modal-price">{formatMarketMoney(product.price, product.currency)} <small>per unit</small></p>
           <div className="product-modal-perks">
-            <div><span aria-hidden="true">🛡</span><strong>{product.sellerVerified ? `Verified ${roleLabel}` : "Approved listing"}</strong><small>Reviewed by SureFood</small></div>
+            <div><span aria-hidden="true">🛡</span><strong>{product.sellerVerified ? `Verified ${roleLabel}` : "Approved listing"}</strong><small>Reviewed by Sure Foodz</small></div>
             <div><span aria-hidden="true">🚚</span><strong>Seller delivery</strong><small>Fast confirmed before you pay</small></div>
             <div><span aria-hidden="true">🔒</span><strong>Protected order</strong><small>Secure checkout</small></div>
           </div>
@@ -197,7 +198,7 @@ export function ProductDetailsDialog({
             <h3>Product Details</h3>
             <p>{product.detail || "This seller has not added a description for this item yet."}</p>
             <dl className="product-modal-specs">
-              <div><dt>{roleLabel}</dt><dd>{product.sellerName || "SureFood seller"}{product.sellerVerified && <span className="verified-seller-badge">Verified {roleLabel.toLowerCase()}</span>}</dd></div>
+              <div><dt>{roleLabel}</dt><dd>{product.sellerName || "Sure Foodz seller"}{product.sellerVerified && <span className="verified-seller-badge">Verified {roleLabel.toLowerCase()}</span>}</dd></div>
               <div><dt>Location</dt><dd>{product.sellerLocation || "Location not provided"}</dd></div>
               <div><dt>Product source</dt><dd>{productSourceLabels[product.productKind ?? ""] ?? "Supplier"}</dd></div>
               <div><dt>Category</dt><dd>{product.category}</dd></div>
@@ -210,7 +211,7 @@ export function ProductDetailsDialog({
               <span className="pm-store-mark" aria-hidden="true">🏪</span>
               <span className="pm-store-copy">
                 <b>Verified {roleLabel.toLowerCase()}</b>
-                <small>{product.sellerName || "SureFood seller"}{product.sellerLocation ? ` · ${product.sellerLocation}` : ""}</small>
+                <small>{product.sellerName || "Sure Foodz seller"}{product.sellerLocation ? ` · ${product.sellerLocation}` : ""}</small>
               </span>
               <Link className="pm-store-button" href={`/store/${product.sellerId}`}>Open store →</Link>
             </div>
@@ -279,6 +280,7 @@ export type ApiProduct = {
   currency: string;
   sellerId?: string;
   sellerName?: string;
+  sellerLogoUrl?: string;
   sellerRole?: string;
   sellerVerified?: boolean;
   sellerCity?: string;
@@ -305,6 +307,7 @@ export function apiProductToListing(product: ApiProduct): MarketplaceProduct {
     currency: product.currency,
     sellerId: product.sellerId,
     sellerName: product.sellerName,
+    sellerLogoUrl: product.sellerLogoUrl,
     sellerRole: product.sellerRole,
     sellerVerified: product.sellerVerified,
     sellerCity: product.sellerCity,

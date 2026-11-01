@@ -22,7 +22,7 @@ const programmeRules = [
 ];
 
 const shareTactics: Tactic[] = [
-  { title: "Use social media", copy: "WhatsApp status, Facebook groups and X are where most SureFood orders start." },
+  { title: "Use social media", copy: "WhatsApp status, Facebook groups and X are where most Sure Foodz orders start." },
   { title: "Show the basket", copy: "Post a photo of what you actually bought — real food converts better than a banner." },
   { title: "Share during meal times", copy: "Late morning and early evening is when people plan what to cook." },
 ];
@@ -131,7 +131,7 @@ export async function GET() {
     minPayoutMinor: AFFILIATE_MIN_PAYOUT_MINOR,
     attributionDays: 90,
     currency: "NGN",
-    supportEmail: String(process.env.SUREFOOD_SUPPORT_EMAIL || "support@surefoodz.com"),
+    supportEmail: String(process.env.SUREFOOD_SUPPORT_EMAIL || "surefoodglobal@gmail.com"),
     rules: programmeRules,
     tactics: shareTactics,
     sharePages: [] as SharePage[],

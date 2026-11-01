@@ -68,16 +68,20 @@ export async function PATCH(request: Request) {
   if (user.role !== "buyer" && user.role !== "vendor") {
     return jsonError("Only buyer and vendor accounts can update contact details here.", 403);
   }
-  if (body.phone === undefined && body.location === undefined) {
-    return jsonError("Enter a phone number or delivery address to update.", 400);
+  if (body.phone === undefined && body.location === undefined && body.displayName === undefined) {
+    return jsonError("Enter a name, phone number, or delivery address to update.", 400);
   }
   const phone = body.phone === undefined ? undefined : cleanString(body.phone, 24);
   const location = body.location === undefined ? undefined : cleanString(body.location, 240);
+  const displayName = body.displayName === undefined ? undefined : cleanString(body.displayName, 100);
   if (phone !== undefined && !/^[+()\d\s.-]{7,24}$/.test(phone)) {
     return jsonError("Enter a valid phone number.", 400);
   }
   if (location !== undefined && location.length < 5) {
     return jsonError("Enter a full delivery address.", 400);
+  }
+  if (displayName !== undefined && displayName.length < 2) {
+    return jsonError("Enter your full name.", 400);
   }
 
   try {
@@ -89,6 +93,7 @@ export async function PATCH(request: Request) {
     const updates = {
       ...(phone !== undefined ? { phone } : {}),
       ...(location !== undefined ? { location } : {}),
+      ...(displayName !== undefined ? { displayName } : {}),
       updatedAt: Timestamp.now(),
     };
     await userRef.update(updates);
@@ -119,7 +124,7 @@ export async function POST(request: Request) {
     return jsonError("Choose buyer, vendor, supplier, or staff.", 400);
   }
   if ((requestedRole === "staff" || requestedRole === "admin") && user.email.toLowerCase() !== adminOverrideEmail) {
-    return jsonError("Only the configured SureFood admin account can create a staff profile.", 403);
+    return jsonError("Only the configured Sure Foodz admin account can create a staff profile.", 403);
   }
 
   const role = (user.email && user.email.toLowerCase() === adminOverrideEmail ? "staff" : (requestedRole as (typeof selectableRoles)[number]));
@@ -138,7 +143,7 @@ export async function POST(request: Request) {
     }
     const existingProfile = existing.data();
     const displayName = requestedName || existingProfile?.displayName || cleanString(user.name, 100);
-    if (!displayName) return jsonError("Your Google account must include a name to create a SureFood profile.", 400);
+    if (!displayName) return jsonError("Your Google account must include a name to create a Sure Foodz profile.", 400);
     const profile = {
       uid: user.uid,
       email: user.email,

@@ -78,7 +78,7 @@ export default function AffiliatesQueuePage() {
         const isStaffUser = token.claims.role === "staff" || token.claims.role === "admin";
         setStaff(isStaffUser);
         if (!isStaffUser) {
-          setError("A SureFood staff or admin account is required to manage affiliate payouts.");
+          setError("A Sure Foodz staff or admin account is required to manage affiliate payouts.");
           return;
         }
         await loadQueue(currentUser);
@@ -116,7 +116,7 @@ export default function AffiliatesQueuePage() {
   return (
     <main className="manual-review-page">
       <header className="manual-review-header">
-        <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
+        <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>foodz</span></span></Link>
         <div>
           <span>STAFF WORKSPACE</span>
           <h1>Affiliate payouts</h1>
@@ -136,7 +136,7 @@ export default function AffiliatesQueuePage() {
       {notice && <p className="manual-review-notice" role="status">{notice}</p>}
 
       {!authReady ? <p className="manual-review-empty">Checking staff access…</p>
-        : !user ? <p className="manual-review-empty">Sign in with a SureFood staff account to manage payouts. <Link href="/login">Sign in →</Link></p>
+        : !user ? <p className="manual-review-empty">Sign in with a Sure Foodz staff account to manage payouts. <Link href="/login">Sign in →</Link></p>
           : staff && loading && payouts.length === 0 ? <p className="manual-review-empty">Loading payouts…</p>
             : staff && waiting.length === 0 ? <section className="manual-review-empty">No affiliate payout is waiting to be paid.</section>
               : staff && (

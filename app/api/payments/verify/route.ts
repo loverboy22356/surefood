@@ -19,10 +19,10 @@ export async function POST(request: Request) {
     return Response.json({ verified: true, orderId: order.id });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
-    if (code === "PAYMENT_ORDER_NOT_FOUND") return jsonError("No SureFood order matches this payment reference.", 404);
+    if (code === "PAYMENT_ORDER_NOT_FOUND") return jsonError("No Sure Foodz order matches this payment reference.", 404);
     if (code === "PAYMENT_NOT_CONFIRMED") return jsonError("Paystack has not confirmed this payment. You have not been marked as paid.", 409);
     if (code === "ORDER_NOT_PAYABLE" || code === "PAYMENT_ORDER_MISMATCH") return jsonError("This order is no longer awaiting this payment.", 409);
-    console.error("Could not verify a SureFood payment.", error);
+    console.error("Could not verify a Sure Foodz payment.", error);
     return jsonError("We could not verify your payment right now. Check your order status before trying again.", 502);
   }
 }

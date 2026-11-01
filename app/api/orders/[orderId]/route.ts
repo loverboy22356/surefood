@@ -121,11 +121,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ order
     if (code === "SELLER_PAYOUT_REQUIRED") return jsonError("Verify your business bank account in Payouts before confirming delivery.", 409);
     if (code === "INVALID_TRANSITION") return jsonError("This order cannot move to that status.", 409);
     if (code === "PAYMENT_NOT_CONFIRMED") return jsonError("The buyer must pay before you start preparing the order.", 409);
-    if (code === "REFUND_UNAVAILABLE") return jsonError("Paid-order refunds are not enabled yet. Contact SureFood support before cancelling.", 409);
+    if (code === "REFUND_UNAVAILABLE") return jsonError("Paid-order refunds are not enabled yet. Contact Sure Foodz support before cancelling.", 409);
     if (code === "INVALID_STOCK") return jsonError("Order stock could not be safely restored.", 500);
     if (code === "INVALID_TOTAL") return jsonError("The product and delivery total is invalid.", 400);
     if (code === "PAYMENT_IN_PROGRESS") return jsonError("This order cannot be cancelled while payment is being processed.", 409);
-    console.error("Could not update a SureFood order.", error);
+    console.error("Could not update a Sure Foodz order.", error);
     return jsonError("We could not update the order.", 500);
   }
 }

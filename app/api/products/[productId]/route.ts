@@ -81,7 +81,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ produ
     const imageUrl = cleanString(body.imageUrl, 1000);
     if (!process.env.CLOUDINARY_CLOUD_NAME ||
         !imageUrl.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`)) {
-      return jsonError("Product images must be uploaded to SureFood Cloudinary storage.", 400);
+      return jsonError("Product images must be uploaded to Sure Foodz Cloudinary storage.", 400);
     }
     updates.imageUrl = imageUrl;
   }
@@ -150,7 +150,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ produ
       if (error.message === "NAFDAC_REQUIRED") return jsonError("Enter a valid NAFDAC number for manufacturer products.", 400);
       if (error.message === "COMPARE_AT_INVALID") return jsonError("The original price must be higher than the sale price.", 400);
     }
-    console.error("Could not update a SureFood product.", error);
+    console.error("Could not update a Sure Foodz product.", error);
     return jsonError("We could not update this product.", 500);
   }
 }
@@ -187,7 +187,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ prod
       if (error.message === "PRODUCT_NOT_FOUND") return jsonError("Product not found.", 404);
       if (error.message === "PRODUCT_FORBIDDEN") return jsonError("You cannot delete another seller's product.", 403);
     }
-    console.error("Could not delete a SureFood product.", error);
+    console.error("Could not delete a Sure Foodz product.", error);
     return jsonError("We could not delete this product.", 500);
   }
 }

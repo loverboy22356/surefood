@@ -1,4 +1,4 @@
-// Shared rules for SureFood's Pay Later (buy now, pay later) applications and
+// Shared rules for Sure Foodz's Pay Later (buy now, pay later) applications and
 // special/event food orders. Used by the public forms, the APIs and staff queues.
 
 export const payLaterApplicantTypes = ["business", "government-employee", "private-employee"] as const;

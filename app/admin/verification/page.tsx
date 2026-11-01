@@ -110,7 +110,7 @@ export default function ManualVerificationPage() {
         const isStaff = token.claims.role === "staff" || token.claims.role === "admin";
         setStaff(isStaff);
         if (!isStaff) {
-          setError("A SureFood staff or admin account is required to review business applications.");
+          setError("A Sure Foodz staff or admin account is required to review business applications.");
           return;
         }
         await loadQueue(currentUser);
@@ -163,7 +163,7 @@ export default function ManualVerificationPage() {
   return (
     <main className="manual-review-page">
       <header className="manual-review-header">
-        <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
+        <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>foodz</span></span></Link>
         <div><span>STAFF WORKSPACE</span><h1>Business verification</h1><p>Vendor applications are checked on proof of address and NIN only. Supplier applications without an automatic registry result also require staff to check the official registry.</p></div>
         {staff && <button type="button" onClick={() => user && void loadQueue(user)} disabled={loading}>{loading ? "Refreshing…" : "Refresh queue"}</button>}
         <nav className="admin-queue-nav">
@@ -176,7 +176,7 @@ export default function ManualVerificationPage() {
       {error && <p className="manual-review-alert" role="alert">{error}</p>}
       {notice && <p className="manual-review-notice" role="status">{notice}</p>}
       {!authReady ? <p className="manual-review-empty">Checking staff access…</p>
-        : !user ? <p className="manual-review-empty">Sign in with a SureFood staff account to review applications. <Link href="/login">Sign in →</Link></p>
+        : !user ? <p className="manual-review-empty">Sign in with a Sure Foodz staff account to review applications. <Link href="/login">Sign in →</Link></p>
           : staff && loading && applications.length === 0 ? <p className="manual-review-empty">Loading submitted applications…</p>
             : staff && applications.length === 0 ? <section className="manual-review-empty">No business applications are waiting for review.</section>
               : staff && <section className="manual-review-list" aria-label="Applications awaiting review">

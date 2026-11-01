@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
 import { readFavourites } from "@/app/components/marketplace-product";
 import { ThemeToggle } from "@/app/components/theme-toggle";
+import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
 import "./account.css";
 
 type AccountRole = "buyer" | "vendor" | "supplier";
@@ -18,6 +19,7 @@ type AccountProfile = {
   role: AccountRole;
   phone?: string;
   location?: string;
+  photoUrl?: string;
   verificationStatus?: string;
 };
 
@@ -95,7 +97,7 @@ function memberSinceLabel(user: User) {
 }
 
 function verificationLabel(profile: AccountProfile) {
-  if (profile.role === "buyer") return "SureFood member";
+  if (profile.role === "buyer") return "Sure Foodz member";
   if (profile.verificationStatus === "approved") return "Verified";
   return (profile.verificationStatus || "verification pending").replaceAll("_", " ");
 }
@@ -113,8 +115,9 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+  const [name, setName] = useState("");
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [orders, setOrders] = useState<BuyerOrder[]>([]);
@@ -157,6 +160,7 @@ export default function AccountPage() {
       setMemberSince(typeof result.memberSince === "string" ? result.memberSince : null);
       setPhone(accountProfile.phone ?? "");
       setLocation(accountProfile.location ?? "");
+      setName(accountProfile.displayName ?? "");
       return accountProfile;
     } catch (reason) {
       setProfileError(reason instanceof Error ? reason.message : "We could not load your account details just now.");
@@ -250,19 +254,53 @@ export default function AccountPage() {
           authorization: `Bearer ${token}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ phone, location }),
+        body: JSON.stringify({ displayName: name, phone, location }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save your details.");
       setProfile(result.profile as AccountProfile);
       setPhone(result.profile.phone ?? "");
       setLocation(result.profile.location ?? "");
-      setNotice("Your phone and delivery address have been saved.");
+      setName(result.profile.displayName ?? "");
+      setNotice("Your profile details have been saved.");
       setEditing(false);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save your details.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadPhoto(file: File) {
+    if (!user) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      setError("Choose a JPG, PNG, or WebP photo for your profile picture.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Choose a profile photo smaller than 5 MB.");
+      return;
+    }
+    setPhotoUploading(true);
+    setError("");
+    setNotice("");
+    try {
+      const token = await user.getIdToken();
+      const form = new FormData();
+      form.append("photo", file);
+      const response = await fetch("/api/profile/avatar", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not save your photo.");
+      setProfile((current) => (current ? { ...current, photoUrl: result.photoUrl } : current));
+      setNotice("Your profile photo has been updated.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not save your photo.");
+    } finally {
+      setPhotoUploading(false);
     }
   }
 
@@ -307,7 +345,6 @@ export default function AccountPage() {
 
   async function logOut() {
     setSigningOut(true);
-    setMenuOpen(false);
     try {
       await signOut(firebaseAuth());
       router.replace("/");
@@ -319,21 +356,29 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <main className="acct-page">
-        <div className="acct-loading">Loading your profile…</div>
-      </main>
+      <div className="sf-page">
+        <ShopHeader />
+        <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 60 }}>
+          <div className="acct-loading">Loading your profile…</div>
+        </main>
+        <ShopFooter />
+      </div>
     );
   }
 
   if (!user) {
     return (
-      <main className="acct-page">
-        <div className="acct-loading">{error || "Taking you to sign in…"}</div>
-      </main>
+      <div className="sf-page">
+        <ShopHeader />
+        <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 60 }}>
+          <div className="acct-loading">{error || "Taking you to sign in…"}</div>
+        </main>
+        <ShopFooter />
+      </div>
     );
   }
 
-  const displayName = profile?.displayName || user.displayName || "SureFood customer";
+  const displayName = profile?.displayName || user.displayName || "Sure Foodz customer";
   const email = profile?.email || user.email || "Email unavailable";
   const role = profile?.role;
   const initial = displayName.slice(0, 1).toUpperCase();
@@ -346,55 +391,20 @@ export default function AccountPage() {
   const buyer = profile?.role === "buyer";
 
   return (
-    <main className="acct-page">
-      <header className="acct-topbar">
-        <Link href="/" className="brand acct-brand">
-          <span className="brand-mark">s</span>
-          <span>sure<span>food</span></span>
-        </Link>
-        <div className="acct-topbar-actions">
-          <Link className="acct-top-link" href="/">Shop</Link>
-          <Link className="acct-top-link" href="/favorites">Favourites</Link>
-          <div className="acct-user">
-            <button
-              type="button"
-              className="acct-user-button"
-              aria-label={`Account menu for ${displayName}`}
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <span className="acct-user-avatar" aria-hidden="true">{initial}</span>
-              <span className="acct-user-copy">
-                <strong>{displayName}</strong>
-                <small>{role ? roleLabels[role] : "Account"}</small>
-              </span>
-              <span className="acct-user-chevron" aria-hidden="true">⌄</span>
-            </button>
-            {menuOpen && (
-              <>
-                <button type="button" className="acct-menu-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
-                <div className="acct-menu" role="menu">
-                  <Link role="menuitem" href="/account#buyer-orders" onClick={() => setMenuOpen(false)}>My orders</Link>
-                  <Link role="menuitem" href="/favorites" onClick={() => setMenuOpen(false)}>Saved items</Link>
-                  <Link role="menuitem" href="/affiliate" onClick={() => setMenuOpen(false)}>Affiliate programme</Link>
-                  <Link role="menuitem" href="/pay-later" onClick={() => setMenuOpen(false)}>Pay later</Link>
-                  <button role="menuitem" type="button" className="acct-menu-signout" onClick={() => void logOut()} disabled={signingOut}>
-                    {signingOut ? "Signing out…" : "Log out"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="sf-page">
+      <ShopHeader />
+      <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 60 }}>
+        <nav className="sf-flow-steps" aria-label="Breadcrumb">
+          <Link href="/">Home</Link><i>/</i>
+          <span className="is-on">My account</span>
+        </nav>
 
       <div className="acct-shell">
         {!profile ? (
           <div className="acct-recovery" role="status">
             <p>
               {profileMissing
-                ? "You are signed in, but this account has no SureFood profile yet. Finish setting it up to start ordering."
+                ? "You are signed in, but this account has no Sure Foodz profile yet. Finish setting it up to start ordering."
                 : profileError || "We could not load your account details just now."}
             </p>
             <div className="acct-recovery-actions">
@@ -414,10 +424,24 @@ export default function AccountPage() {
           <>
             <section className="acct-hero">
               <div className="acct-hero-body">
-                <div className="acct-hero-avatar" aria-hidden="true">
-                  {initial}
-                  <span className="acct-hero-cam"><Icon name="camera" /></span>
-                </div>
+                <label className={photoUploading ? "acct-hero-avatar is-busy" : "acct-hero-avatar"}>
+                  {profile.photoUrl
+                    ? <img src={profile.photoUrl} alt="" />
+                    : initial}
+                  <span className="acct-hero-cam" aria-hidden="true"><Icon name="camera" /></span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="acct-photo-input"
+                    aria-label="Upload a profile photo"
+                    disabled={photoUploading}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) void uploadPhoto(file);
+                    }}
+                  />
+                </label>
                 <div className="acct-hero-copy">
                   <span className="acct-pill">{profile.verificationStatus === "approved" ? "✓ " : ""}{verificationLabel(profile)}</span>
                   <h1>{displayName}</h1>
@@ -426,7 +450,7 @@ export default function AccountPage() {
                   <p className="acct-hero-note">
                     {buyer
                       ? "Fresh food, delivered with care. Keep your details current so sellers can reach you."
-                      : "Manage your SureFood business account, orders and verification in one place."}
+                      : "Manage your Sure Foodz business account, orders and verification in one place."}
                   </p>
                 </div>
               </div>
@@ -435,7 +459,7 @@ export default function AccountPage() {
                   ✎ Edit profile
                 </button>
                 <div className="acct-hero-art" aria-hidden="true">
-                  <Image src="/images/home-produce.png" alt="" fill sizes="320px" />
+                  <Image src="/images/home-produce.webp" alt="" fill sizes="320px" />
                 </div>
               </div>
             </section>
@@ -475,6 +499,17 @@ export default function AccountPage() {
 
                   {buyer && editing ? (
                     <form className="acct-form" onSubmit={saveBuyerDetails}>
+                      <label htmlFor="buyer-name">Full name</label>
+                      <input
+                        id="buyer-name"
+                        type="text"
+                        autoComplete="name"
+                        maxLength={100}
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        placeholder="Your full name"
+                        required
+                      />
                       <label htmlFor="buyer-phone">Phone number</label>
                       <input
                         id="buyer-phone"
@@ -604,19 +639,21 @@ export default function AccountPage() {
                   <div>
                     <h2>Need help?</h2>
                     <p>Our support team is here for your orders, payouts and verification.</p>
-                    <a className="acct-button" href="mailto:support@surefoodz.com">Contact support <span aria-hidden="true">→</span></a>
+                    <a className="acct-button" href="mailto:surefoodglobal@gmail.com">Contact support <span aria-hidden="true">→</span></a>
                   </div>
                 </section>
 
                 <section className="acct-thanks">
                   <span className="acct-thanks-leaf"><Icon name="sparkle" /></span>
-                  <p><strong>Thank you for being part of SureFood!</strong><small>Together we grow. Together we earn.</small></p>
+                  <p><strong>Thank you for being part of Sure Foodz!</strong><small>Together we grow. Together we earn.</small></p>
                 </section>
               </div>
             </div>
           </>
         )}
-      </div>
-    </main>
+        </div>
+      </main>
+      <ShopFooter />
+    </div>
   );
 }

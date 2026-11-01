@@ -1,0 +1,287 @@
+/* Wishlist — table of saved products. */
+
+.wl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0 4px;
+}
+
+.wl-back {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--sf-line);
+  border-radius: 50%;
+  background: var(--sf-card, #fff);
+  color: var(--sf-ink);
+  font-size: 15px;
+  text-decoration: none;
+  transition: transform .18s ease, border-color .18s ease;
+}
+
+.wl-back:hover {
+  border-color: #1b6cff;
+  color: #1b6cff;
+  transform: translateX(-2px);
+}
+
+.wl-share {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--sf-line);
+  border-radius: 50%;
+  background: var(--sf-card, #fff);
+  color: var(--sf-muted);
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease;
+}
+
+.wl-share:hover { border-color: #1b6cff; color: #1b6cff; }
+
+.wl-title {
+  margin: 10px 0 6px;
+  color: var(--sf-ink);
+  font-family: var(--font-display);
+  font-size: clamp(30px, 4vw, 42px);
+  font-weight: 800;
+  letter-spacing: -1.4px;
+  line-height: 1.05;
+}
+
+.wl-lede {
+  max-width: 70ch;
+  margin: 0 0 22px;
+  color: var(--sf-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+/* Table ------------------------------------------------------------------ */
+
+.wl-table {
+  border: 1px solid var(--sf-line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--sf-card, #fff);
+}
+
+.wl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 140px 200px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--sf-line);
+}
+
+.wl-row:first-child { border-top: 0; }
+
+.wl-row-head {
+  padding: 13px 18px;
+  background: var(--sf-soft, #f7f7f8);
+  color: var(--sf-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.wl-row-head span:last-child { text-align: right; }
+
+.wl-product {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.wl-thumb {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--sf-line);
+  border-radius: 4px;
+  background: #f4f5f7;
+  font-size: 26px;
+}
+
+.wl-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .35s ease;
+}
+
+.wl-thumb:hover img { transform: scale(1.06); }
+
+.wl-copy { min-width: 0; }
+
+.wl-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--sf-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.wl-name:hover { color: #1b6cff; }
+
+.wl-copy small {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--sf-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-price { display: grid; gap: 2px; }
+.wl-price s { color: var(--sf-muted); font-size: 11.5px; }
+.wl-price b { color: var(--sf-ink); font-size: 14.5px; font-weight: 700; }
+
+.wl-stock-pill {
+  display: inline-block;
+  color: #128a43;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.wl-stock-pill.is-off { color: #b42318; }
+html[data-theme="dark"] .wl-stock-pill { color: #4ade80; }
+html[data-theme="dark"] .wl-stock-pill.is-off { color: #f87171; }
+
+.wl-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.wl-add {
+  min-height: 38px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: #1b6cff;
+  color: #fff;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .18s ease, transform .18s ease;
+}
+
+.wl-add:hover { background: #0b53d6; transform: translateY(-1px); }
+.wl-add:disabled { background: #c9ced8; cursor: not-allowed; transform: none; }
+
+.wl-remove {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--sf-line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sf-muted);
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.wl-remove:hover {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.wl-ghost {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--sf-line);
+  border-radius: 4px;
+  color: var(--sf-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.wl-ghost:hover { border-color: #1b6cff; color: #1b6cff; }
+
+/* Empty ------------------------------------------------------------------ */
+
+.wl-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 54px 22px;
+  border: 1px dashed var(--sf-line);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.wl-empty-art {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin-bottom: 4px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef4ff;
+  color: #1b6cff;
+  font-size: 28px;
+}
+
+.wl-empty h2 {
+  margin: 0;
+  color: var(--sf-ink);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.wl-empty p { margin: 0; color: var(--sf-muted); font-size: 13px; }
+.wl-empty-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+@media (max-width: 860px) {
+  .wl-row { grid-template-columns: minmax(0, 1fr) 130px; }
+  .wl-row-head { display: none; }
+  .wl-price { grid-column: 2; justify-items: end; text-align: right; }
+  .wl-stock { grid-column: 1; padding-left: 76px; }
+  .wl-actions { grid-column: 2; }
+  .wl-product { grid-row: 1; }
+}
+
+@media (max-width: 560px) {
+  .wl-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+    padding: 14px;
+  }
+  .wl-product { grid-column: 1 / -1; }
+  .wl-stock { grid-column: 1; padding-left: 0; }
+  .wl-actions { grid-column: 2; }
+  .wl-price { grid-column: 1; justify-items: start; text-align: left; }
+  .wl-add { padding: 0 12px; font-size: 11px; }
+}

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { SearchResults } from "./search-results";
 
 export const metadata: Metadata = {
-  title: "Search products | SureFood",
-  description: "Search live listings from approved SureFood sellers.",
+  title: "Search products | Sure Foodz",
+  description: "Search live listings from approved Sure Foodz sellers.",
 };
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {

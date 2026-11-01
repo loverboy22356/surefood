@@ -1,7 +1,7 @@
 export type Coords = { lat: number; lon: number };
 
 /**
- * Coordinates for the cities and states SureFood sellers trade from. They let the
+ * Coordinates for the cities and states Sure Foodz sellers trade from. They let the
  * shop show a real distance ("1.4 km away") instead of guessing, and they are only
  * used for sorting and labels — never for pricing.
  */

@@ -47,7 +47,7 @@ export default function SupplierStorePreviewPage() {
   return (
     <main className="onboarding-page">
       <header className="onboarding-header">
-        <Link href="/supplier" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
+        <Link href="/supplier" className="brand"><span className="brand-mark">s</span><span>sure<span>foodz</span></span></Link>
         <Link href="/supplier">Back to supplier dashboard →</Link>
       </header>
       <section className="onboarding-card">

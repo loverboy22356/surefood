@@ -19,3 +19,5 @@ firebase-service-account*.json
 *.zip
 
 shots/
+
+.scratch/

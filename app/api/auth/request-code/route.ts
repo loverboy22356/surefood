@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!isEmail(email)) return jsonError("Enter a valid email address.", 400);
   if (purpose !== "signup" && purpose !== "login") return jsonError("Choose signup or login.", 400);
   if (purpose === "signup" && email === getAdminOverrideEmail()) {
-    return jsonError("Create or access the SureFood admin account from the admin portal.", 403);
+    return jsonError("Create or access the Sure Foodz admin account from the admin portal.", 403);
   }
   if (purpose === "signup" && (!signupRoles.includes(effectiveRole as (typeof signupRoles)[number]) || !displayName || !phone || !location)) {
     return jsonError("Sign-up requires a role, name, phone number, and location.", 400);
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       const user = await adminAuth().getUserByEmail(email);
       const profile = await adminDb().collection("users").doc(user.uid).get();
       if (profile.data()?.role === "staff" || profile.data()?.role === "admin") {
-        return jsonError("Staff accounts sign in through the SureFood admin portal.", 403);
+        return jsonError("Staff accounts sign in through the Sure Foodz admin portal.", 403);
       }
     } catch (error) {
       // A missing account is fine — the code is still sent and verify-code rejects
@@ -68,12 +68,12 @@ export async function POST(request: Request) {
   const sentAt = Date.now();
   const emailBody = {
     sender: {
-      name: process.env.BREVO_SENDER_NAME || "SureFood",
+      name: process.env.BREVO_SENDER_NAME || "Sure Foodz",
       email: brevoSenderEmail,
     },
     to: [{ email }],
-    subject: purpose === "signup" ? "Your SureFood sign-up code" : "Your SureFood sign-in code",
-    textContent: `Your SureFood verification code is ${code}. It expires in 10 minutes. If you did not request this code, ignore this email.`,
+    subject: purpose === "signup" ? "Your Sure Foodz sign-up code" : "Your Sure Foodz sign-in code",
+    textContent: `Your Sure Foodz verification code is ${code}. It expires in 10 minutes. If you did not request this code, ignore this email.`,
   };
 
   try {
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "CODE_RATE_LIMIT") {
       return jsonError("Please wait before requesting another code.", 429);
     }
-    console.error("Could not send a SureFood verification email.", error);
+    console.error("Could not send a Sure Foodz verification email.", error);
     if (error instanceof DOMException && error.name === "TimeoutError") {
       return jsonError("The email provider did not respond in time. Please try again shortly.", 504);
     }

@@ -4,25 +4,43 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   apiProductToListing,
+  formatMarketMoney,
   matchesSearch,
-  ProductDetailsDialog,
-  eventOrderHref,
+  productImageUrl,
   readFavourites,
   writeFavourites,
   type ApiProduct,
   type MarketplaceProduct,
 } from "@/app/components/marketplace-product";
-import { addItemToBasket, cartItemCount } from "@/app/components/cart-client";
-import {
-  BrowseHeader,
-  BrowseHero,
-  BrowseProductCard,
-  BrowseResultBar,
-  FilterSidebar,
-  priceBandMatches,
-  productLocationLabel,
-  type PriceBandId,
-} from "@/app/components/browse-ui";
+import { addItemToBasket } from "@/app/components/cart-client";
+import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
+
+type PriceBandId = "any" | "low" | "mid" | "high" | "premium";
+
+const priceBands: { id: PriceBandId; label: string }[] = [
+  { id: "any", label: "Any price" },
+  { id: "low", label: "Under ₦5,000" },
+  { id: "mid", label: "₦5,000 – ₦10,000" },
+  { id: "high", label: "₦10,000 – ₦20,000" },
+  { id: "premium", label: "₦20,000 and above" },
+];
+
+function priceBandMatches(priceMinor: number, band: PriceBandId) {
+  if (band === "any") return true;
+  if (band === "low") return priceMinor < 500_000;
+  if (band === "mid") return priceMinor >= 500_000 && priceMinor < 1_000_000;
+  if (band === "high") return priceMinor >= 1_000_000 && priceMinor < 2_000_000;
+  return priceMinor >= 2_000_000;
+}
+
+function productLocationLabel(product: MarketplaceProduct) {
+  return product.sellerLocation || [product.sellerCity, product.sellerRegion].filter(Boolean).join(", ");
+}
+
+function discountPercent(product: MarketplaceProduct) {
+  if (!product.oldPrice || product.oldPrice <= product.price) return 0;
+  return Math.round((1 - product.price / product.oldPrice) * 100);
+}
 
 export function SearchResults({ initialQuery }: { initialQuery: string }) {
   const [query, setQuery] = useState(initialQuery);
@@ -35,24 +53,20 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
   const [location, setLocation] = useState("");
   const [priceBand, setPriceBand] = useState<PriceBandId>("any");
   const [sort, setSort] = useState("relevance");
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [favourites, setFavourites] = useState<MarketplaceProduct[]>([]);
-  const [selected, setSelected] = useState<MarketplaceProduct | null>(null);
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"ok" | "warn">("ok");
-  const [basketCount, setBasketCount] = useState(0);
 
   useEffect(() => {
     setQuery(initialQuery);
     setTerm(initialQuery.trim());
     setCategory("");
     setSeller("");
+    setLocation("");
   }, [initialQuery]);
 
   useEffect(() => {
     setFavourites(readFavourites());
-    setBasketCount(cartItemCount());
   }, []);
 
   useEffect(() => {
@@ -112,17 +126,6 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
     return [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }, [scoped]);
 
-  const priceCounts = useMemo(() => {
-    const counts: Record<PriceBandId, number> = { any: scoped.length, low: 0, mid: 0, high: 0, premium: 0 };
-    for (const product of scoped) {
-      if (product.price < 500_000) counts.low += 1;
-      else if (product.price < 1_000_000) counts.mid += 1;
-      else if (product.price < 2_000_000) counts.high += 1;
-      else counts.premium += 1;
-    }
-    return counts;
-  }, [scoped]);
-
   const matches = useMemo(() => {
     const filtered = scoped.filter((product) =>
       (!category || product.category === category) &&
@@ -135,7 +138,7 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
     return filtered;
   }, [scoped, category, seller, priceBand, sort]);
 
-  const sellers = useMemo(() => new Set(matches.map((product) => product.sellerId).filter(Boolean)).size, [matches]);
+  const sellerTotal = useMemo(() => new Set(matches.map((product) => product.sellerId).filter(Boolean)).size, [matches]);
   const favouriteIds = useMemo(() => new Set(favourites.map((item) => item.id)), [favourites]);
   const filtersActive = Boolean(category || seller || location || priceBand !== "any");
 
@@ -170,131 +173,211 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
     const result = addItemToBasket(product, quantity);
     setNoticeTone(result.ok ? "ok" : "warn");
     setNotice(result.message);
-    setBasketCount(cartItemCount());
   }
 
-  const heroChips = [
-    { label: "All Categories", count: scoped.length, active: !category, onClick: () => setCategory("") },
-    ...categoryCounts.slice(0, 3).map((option) => ({
-      label: option.name,
-      count: option.count,
-      active: category === option.name,
-      onClick: () => setCategory(option.name),
-    })),
-  ];
-
   return (
-    <main className="browse-page" data-local-currency>
-      <BrowseHeader
-        query={query}
-        onQueryChange={setQuery}
-        onSubmit={submitSearch}
-        locations={locationOptions}
-        location={location}
-        onLocationChange={setLocation}
-        savedCount={favourites.length}
-        basketCount={basketCount}
-      />
+    <div className="sf-page">
+      <ShopHeader />
 
-      <div className="browse-shell">
-        <BrowseHero
-          kicker="Search results"
-          title={term ? "Results for" : "Search every live listing"}
-          highlight={term || undefined}
-          description={term
-            ? "Discover fresh and quality food from trusted, verified sellers."
-            : "Browse everything approved sellers have listed today."}
-          chips={heroChips}
-        />
+      <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 50 }} data-local-currency>
+        <div className="sf-breadcrumbs">
+          <Link href="/">Home</Link>
+          <span>/</span>
+          <Link href="/shop">Shop</Link>
+          <span>/</span>
+          <span>{term ? "Search results" : "Search"}</span>
+        </div>
 
-        <div className="browse-layout">
-          <FilterSidebar
-            open={filtersOpen}
-            onToggle={() => setFiltersOpen((current) => !current)}
-            categoryCounts={categoryCounts}
-            category={category}
-            onCategory={setCategory}
-            priceCounts={priceCounts}
-            priceBand={priceBand}
-            onPriceBand={setPriceBand}
-            sellers={sellerCounts}
-            seller={seller}
-            onSeller={setSeller}
-            onClear={clearFilters}
-            clearDisabled={!filtersActive && sort === "relevance"}
+        <div className="sf-list-bar">
+          <div>
+            <h1>{term ? `Results for “${term}”` : "Search every live listing"}</h1>
+            <small>
+              Showing <b style={{ color: "var(--sf-ink)" }}>{matches.length}</b> of {catalog.length} items
+              {sellerTotal ? ` · ${sellerTotal} seller${sellerTotal === 1 ? "" : "s"}` : ""}
+            </small>
+          </div>
+          <select className="sf-select" value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort products">
+            <option value="relevance">Relevance</option>
+            <option value="price-asc">Price: low to high</option>
+            <option value="price-desc">Price: high to low</option>
+            <option value="name">Name: A to Z</option>
+          </select>
+        </div>
+
+        <form
+          className="sf-search"
+          style={{ maxWidth: 560, marginBottom: 18 }}
+          onSubmit={(event) => { event.preventDefault(); submitSearch(query); }}
+          role="search"
+        >
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search products, categories or sellers…"
+            aria-label="Search products"
           />
+          <button type="submit" aria-label="Run search">⌕</button>
+        </form>
 
-          <section className="browse-results" aria-label="Search results">
-            <BrowseResultBar
-              count={matches.length}
-              noun={matches.length === 1 ? "product" : "products"}
-              sort={sort}
-              onSort={setSort}
-              view={view}
-              onView={setView}
-              context={term
-                ? `found for “${term}”${sellers ? ` · ${sellers} seller${sellers === 1 ? "" : "s"}` : ""}`
-                : `available right now${sellers ? ` · ${sellers} seller${sellers === 1 ? "" : "s"}` : ""}`}
-            />
-
-            {error && <p className="browse-alert" role="alert">{error}</p>}
-
-            {loading && (
-              <div className={`browse-grid ${view}`} aria-hidden="true">
-                {[0, 1, 2, 3].map((index) => <div className="browse-card skeleton" key={index} />)}
-              </div>
-            )}
-
-            {!error && !loading && matches.length === 0 && (
-              <div className="browse-empty">
-                <span aria-hidden="true">🧺</span>
-                <h2>No products matched {term ? `“${term}”` : "that filter"}</h2>
-                <p>Try a different word or clear the filters to see everything approved sellers have listed today.</p>
-                <div>
-                  <button type="button" onClick={() => { setTerm(""); setQuery(""); clearFilters(); window.history.replaceState(null, "", "/search"); }}>Show all products</button>
-                  <Link href="/">Back to marketplace</Link>
-                </div>
-              </div>
-            )}
-
-            {!loading && matches.length > 0 && (
-              <div className={`browse-grid ${view}`}>
-                {matches.map((product) => (
-                  <BrowseProductCard
-                    key={product.id}
-                    product={product}
-                    view={view}
-                    saved={favouriteIds.has(product.id)}
-                    onAdd={addToBasket}
-                    onToggleSave={toggleFavourite}
-                    onDetails={setSelected}
-                  />
+        <div className="sf-list-layout">
+          <aside className="sf-filters" aria-label="Filters">
+            <details className="sf-filter-group" open>
+              <summary>Category</summary>
+              <div className="sf-filter-body">
+                {categoryCounts.map((option) => (
+                  <label key={option.name} className="sf-check">
+                    <input
+                      type="radio"
+                      name="search-category"
+                      checked={category === option.name}
+                      onChange={() => setCategory(category === option.name ? "" : option.name)}
+                    />
+                    {option.name} <small style={{ color: "var(--sf-muted)" }}>({option.count})</small>
+                  </label>
                 ))}
+                {!categoryCounts.length && <small style={{ color: "var(--sf-muted)" }}>No categories yet</small>}
+              </div>
+            </details>
+
+            <details className="sf-filter-group" open>
+              <summary>Sold by</summary>
+              <div className="sf-filter-body">
+                {sellerCounts.map((option) => (
+                  <label key={option.name} className="sf-check">
+                    <input
+                      type="radio"
+                      name="search-seller"
+                      checked={seller === option.name}
+                      onChange={() => setSeller(seller === option.name ? "" : option.name)}
+                    />
+                    {option.name} <small style={{ color: "var(--sf-muted)" }}>({option.count})</small>
+                  </label>
+                ))}
+                {!sellerCounts.length && <small style={{ color: "var(--sf-muted)" }}>No sellers yet</small>}
+              </div>
+            </details>
+
+            <details className="sf-filter-group" open={locationOptions.length > 0}>
+              <summary>Location</summary>
+              <div className="sf-filter-body">
+                {locationOptions.map((option) => (
+                  <label key={option.value} className="sf-check">
+                    <input
+                      type="radio"
+                      name="search-location"
+                      checked={location === option.value}
+                      onChange={() => setLocation(location === option.value ? "" : option.value)}
+                    />
+                    {option.label} <small style={{ color: "var(--sf-muted)" }}>({option.count})</small>
+                  </label>
+                ))}
+                {!locationOptions.length && <small style={{ color: "var(--sf-muted)" }}>No seller locations yet</small>}
+              </div>
+            </details>
+
+            <details className="sf-filter-group" open>
+              <summary>Price</summary>
+              <div className="sf-filter-body">
+                {priceBands.map((band) => (
+                  <label key={band.id} className="sf-check">
+                    <input
+                      type="radio"
+                      name="search-price"
+                      checked={priceBand === band.id}
+                      onChange={() => setPriceBand(band.id)}
+                    />
+                    {band.label}
+                  </label>
+                ))}
+              </div>
+            </details>
+
+            <details className="sf-filter-group" open>
+              <summary>Refine</summary>
+              <div className="sf-filter-body">
+                <button
+                  type="button"
+                  className="sf-more"
+                  onClick={clearFilters}
+                  disabled={!filtersActive && sort === "relevance"}
+                >
+                  Clear filters
+                </button>
+              </div>
+            </details>
+          </aside>
+
+          <section aria-label="Search results">
+            {notice && <p className="sf-auth-note" role="status">{notice}</p>}
+            {error && <p className="sf-auth-error" role="alert">{error}</p>}
+
+            {loading ? (
+              <div className="sf-grid" aria-hidden="true">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="sf-card" style={{ height: 320, opacity: .45 }} />
+                ))}
+              </div>
+            ) : matches.length ? (
+              <div className="sf-grid">
+                {matches.map((product) => {
+                  const off = discountPercent(product);
+                  const saved = favouriteIds.has(product.id);
+                  return (
+                    <article key={product.id} className="sf-card">
+                      <Link className={product.imageUrl ? "sf-card-art" : "sf-card-art is-flat"} href={`/product/${product.id}`}>
+                        {product.imageUrl
+                          ? <img src={productImageUrl(product.imageUrl, 500)} alt={product.name} loading="lazy" />
+                          : <span aria-hidden="true">{product.emoji}</span>}
+                        {off > 0 && <span className="sf-card-off">-{off}%</span>}
+                        {product.tag && <span className="sf-card-tag">{product.tag}</span>}
+                      </Link>
+                      <div className="sf-card-body">
+                        <span className="sf-card-source">
+                          {product.sellerVerified ? "✔ " : ""}
+                          {product.sellerRole === "supplier" ? "Supplier" : "Vendor"}
+                          {product.sellerCity ? ` · ${product.sellerCity}` : ""}
+                        </span>
+                        <Link className="sf-card-title" href={`/product/${product.id}`}>{product.name}</Link>
+                        <div className="sf-card-price">
+                          <strong>{formatMarketMoney(product.price, product.currency)}</strong>
+                          {product.oldPrice && <del>{formatMarketMoney(product.oldPrice, product.currency)}</del>}
+                        </div>
+                        <button
+                          type="button"
+                          className="sf-card-add"
+                          disabled={(product.stock ?? 0) <= 0}
+                          onClick={() => addToBasket(product)}
+                        >
+                          {(product.stock ?? 0) <= 0 ? "Out of stock" : "+ Add to Cart"}
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className={saved ? "sf-card-save is-on" : "sf-card-save"}
+                        aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
+                        aria-pressed={saved}
+                        onClick={() => toggleFavourite(product)}
+                      >♥</button>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="sf-empty-state">
+                <p style={{ margin: "0 0 10px" }}>
+                  {term ? `Nothing matched “${term}”.` : "No products matched those filters."} Try a different word or clear the filters.
+                </p>
+                <button type="button" className="sf-more" onClick={() => { setQuery(""); setTerm(""); clearFilters(); window.history.replaceState(null, "", "/search"); }}>
+                  Show all products
+                </button>
+                <p style={{ margin: "12px 0 0" }}><Link href="/shop" className="sf-more">Browse the shop</Link></p>
               </div>
             )}
           </section>
         </div>
-      </div>
+      </main>
 
-      {notice && (
-        <div className={`browse-toast ${noticeTone}`} role="status">
-          <span>{notice}</span>
-          {noticeTone === "ok" && <Link href="/">Go to basket →</Link>}
-          <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}>×</button>
-        </div>
-      )}
-
-      {selected && (
-        <ProductDetailsDialog
-          key={selected.id}
-          product={selected}
-          onClose={() => setSelected(null)}
-          onAdd={addToBasket}
-          saved={favouriteIds.has(selected.id)}
-          onToggleSave={toggleFavourite}
-          onEventOrder={(product, quantity) => { window.location.assign(eventOrderHref(product, quantity)); }}
-        />
-      )}
-    </main>
+      <ShopFooter />
+    </div>
   );
 }

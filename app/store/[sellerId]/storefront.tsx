@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
 import {
   readFavourites,
   writeFavourites,
   type MarketplaceProduct,
 } from "@/app/components/marketplace-product";
+import "@/app/store.css";
 
 type StoreProduct = {
   id: string;
@@ -29,6 +31,7 @@ type StoreSeller = {
   role: string;
   name: string;
   displayName: string;
+  logoUrl?: string;
   city: string;
   region: string;
   location: string;
@@ -89,7 +92,7 @@ function writeCart(lines: CartLine[]) {
     if (lines.length) window.localStorage.setItem(CART_KEY, JSON.stringify(lines));
     else window.localStorage.removeItem(CART_KEY);
   } catch (error) {
-    console.error("Could not save the SureFood basket.", error);
+    console.error("Could not save the Sure Foodz basket.", error);
   }
 }
 
@@ -240,76 +243,112 @@ export function Storefront({ sellerId }: { sellerId: string }) {
     setSelected(product);
   }
 
-  if (loading) return <main className="business-loading">Loading this store…</main>;
+  if (loading) {
+    return (
+      <div className="sf-page">
+        <ShopHeader />
+        <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 60 }}>
+          <p className="marketplace-empty">Loading this store…</p>
+        </main>
+        <ShopFooter />
+      </div>
+    );
+  }
 
   if (error || !seller) {
     return (
-      <main className="store-page" data-local-currency>
-        <header className="store-topbar">
-          <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
-          <Link href="/">Back to marketplace →</Link>
-        </header>
-        <div className="store-body">
+      <div className="sf-page">
+        <ShopHeader />
+        <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 60 }}>
+          <nav className="sf-flow-steps" aria-label="Breadcrumb">
+            <Link href="/">Home</Link><i>/</i>
+            <Link href="/shop">Shop</Link><i>/</i>
+            <span className="is-on">Store</span>
+          </nav>
           <p className="marketplace-empty" role="alert">{error || "This store could not be found."}</p>
-        </div>
-      </main>
+          <p><Link className="stf-back" href="/" aria-label="Back to the marketplace">←</Link></p>
+        </main>
+        <ShopFooter />
+      </div>
     );
   }
 
   const roleLabel = roleLabels[seller.role] ?? "Business";
   const related = selected ? products.filter((product) => product.id !== selected.id).slice(0, 4) : [];
-  const about = `${seller.name} is an approved SureFood ${roleLabel.toLowerCase()}${seller.location ? ` in ${seller.location}` : ""}, reviewed and verified by our team${seller.country === "NG" ? ", serving buyers across Nigeria" : ""}.`;
+  const about = `${seller.name} is an approved Sure Foodz ${roleLabel.toLowerCase()}${seller.location ? ` in ${seller.location}` : ""}, reviewed and verified by our team${seller.country === "NG" ? ", serving buyers across Nigeria" : ""}.`;
 
   return (
-    <main className="store-page" data-local-currency>
-      <header className="store-topbar">
-        <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
-        <nav className="store-topbar-links" aria-label="Store navigation">
-          <span>📍 {seller.location || "SureFood"}</span>
-          <Link href="/favorites">♥ Favourites</Link>
-          <Link href="/">Back to marketplace →</Link>
-        </nav>
-      </header>
+    <div className="sf-page">
+      <ShopHeader />
 
-      <div className="store-body">
-        <section className="store-banner">
-          <Image src="/images/store-banner.jpg" alt="" fill preload sizes="100vw" quality={90} className="store-banner-image" />
-          <div className="store-banner-inner">
-            <span className="store-avatar" aria-hidden="true">{roleArt[seller.role] ?? "🏬"}</span>
-            <div className="store-banner-copy">
-              <h1>{seller.name} {seller.verified && <span className="store-verified-tick" aria-label="Verified business">✓</span>}</h1>
-              <p className="store-banner-meta">
-                <span>📍 {seller.location || "Location not provided"}</span>
-                <span aria-hidden="true">•</span>
-                <span>{products.length} live listing{products.length === 1 ? "" : "s"}</span>
-              </p>
-              <div className="store-badges">
-                <span className="store-chip verified">✓ Verified {roleLabel}</span>
-                {seller.registryVerified && <span className="store-chip registry">🏛 {registryBadge(seller)}</span>}
-              </div>
-              <p className="store-banner-about">{about}</p>
+      <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 60 }} data-local-currency>
+        <nav className="sf-flow-steps" aria-label="Breadcrumb">
+          <Link href="/">Home</Link><i>/</i>
+          <Link href="/shop">Shop</Link><i>/</i>
+          <span className="is-on">{seller.name}</span>
+        </nav>
+
+        <div className="stf-head">
+          <Link href="/shop" className="stf-back" aria-label="Back to the shop">←</Link>
+          <button
+            type="button"
+            className="stf-share"
+            aria-label="Share this store"
+            onClick={() => {
+              const url = window.location.href;
+              if (navigator.share) void navigator.share({ title: seller.name, url }).catch(() => {});
+              else void navigator.clipboard?.writeText(url);
+            }}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="18" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+              <circle cx="6" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+              <circle cx="18" cy="19" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+              <path d="m8.5 10.8 7-4.2M8.5 13.2l7 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <section className="stf-hero">
+          <div className="stf-hero-art">
+            <Image src="/images/store-banner.jpg" alt="" fill preload sizes="(max-width: 860px) 100vw, 300px" quality={90} />
+            <span className={`stf-avatar${seller.logoUrl ? " has-logo" : ""}`} aria-hidden="true">
+              {seller.logoUrl ? <img src={seller.logoUrl} alt="" loading="lazy" /> : roleArt[seller.role] ?? "🏬"}
+            </span>
+          </div>
+          <div className="stf-hero-copy">
+            <span className="stf-chip">✓ Verified {roleLabel}</span>
+            <h1>
+              {seller.name}
+              {seller.verified && <span aria-label="Verified business"> ✓</span>}
+            </h1>
+            <p className="stf-meta">
+              <span>📍 {seller.location || "Location not provided"}</span>
+              <i aria-hidden="true">•</i>
+              <span>{products.length} live listing{products.length === 1 ? "" : "s"}</span>
+              {seller.registryVerified && <><i aria-hidden="true">•</i><span>🏛 {registryBadge(seller)}</span></>}
+            </p>
+            <p className="stf-about">{about}</p>
+            <div className="stf-stats">
+              <div className="stf-stat"><b>Verified business</b><small>Reviewed &amp; approved</small></div>
+              <div className="stf-stat"><b>{roleLabel} rating</b><small>New on Sure Foodz</small></div>
+              <div className="stf-stat"><b>{seller.country === "NG" ? "Across Nigeria" : "Available"}</b><small>Seller-handled delivery</small></div>
+              <div className="stf-stat"><b>{products.length} product{products.length === 1 ? "" : "s"}</b><small>Live right now</small></div>
             </div>
           </div>
         </section>
 
-        <div className="store-trust-strip">
-          <div><span className="store-trust-icon">🛡</span><span><strong>Verified Business</strong><small>Reviewed &amp; approved</small></span></div>
-          <div><span className="store-trust-icon">★</span><span><strong>{roleLabel} Rating</strong><small>New on SureFood</small></span></div>
-          <div><span className="store-trust-icon">🚚</span><span><strong>Delivery {seller.country === "NG" ? "Across Nigeria" : "Available"}</strong><small>Seller-handled delivery</small></span></div>
-          <div><span className="store-trust-icon">📦</span><span><strong>Products Available</strong><small>{products.length} live listing{products.length === 1 ? "" : "s"}</small></span></div>
-        </div>
-
-        <section className="store-ways" aria-label={`Ways to buy from ${seller.name}`}>
-          <Link className="store-way" href="/pay-later">
-            <span className="store-way-icon" aria-hidden="true">🗓</span>
+        <section className="stf-ways" aria-label={`Ways to buy from ${seller.name}`}>
+          <Link className="stf-way" href="/pay-later">
+            <span className="stf-way-icon" aria-hidden="true">🗓</span>
             <span>
               <strong>Buy now, pay later</strong>
               <small>Take what you need from this store today and pay it back on a low-interest plan. No bank card.</small>
               <b>See if you qualify →</b>
             </span>
           </Link>
-          <Link className="store-way" href="/special-orders">
-            <span className="store-way-icon" aria-hidden="true">🎉</span>
+          <Link className="stf-way" href="/special-orders">
+            <span className="stf-way-icon" aria-hidden="true">🎉</span>
             <span>
               <strong>Special &amp; event orders</strong>
               <small>Planning a wedding or event? Order ahead from this {roleLabel.toLowerCase()} and earn a planning discount.</small>
@@ -318,23 +357,28 @@ export function Storefront({ sellerId }: { sellerId: string }) {
           </Link>
         </section>
 
-        <section className="store-catalogue">
-          <div className="store-catalogue-heading">
-            <div><span className="section-kicker">SHOP THIS STORE</span><h2>Products from {seller.name}</h2></div>
+        <section className="stf-catalogue">
+          <div className="stf-cat-head">
+            <div>
+              <span className="stf-kicker">Shop this store</span>
+              <h2>Products from {seller.name}</h2>
+            </div>
+            <small>{visibleProducts.length} of {products.length} shown</small>
           </div>
-          <div className="store-toolbar">
-            <label className="store-search">
+
+          <div className="stf-toolbar">
+            <label className="stf-search">
               <span aria-hidden="true">⌕</span>
               <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products…" aria-label={`Search products from ${seller.name}`} />
             </label>
-            <label className="store-select">
+            <label className="stf-select">
               <span className="sr-only">Filter by category</span>
               <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Filter by category">
-                <option value="">All Categories</option>
+                <option value="">All categories</option>
                 {categories.map((name) => <option value={name} key={name}>{name}</option>)}
               </select>
             </label>
-            <label className="store-select">
+            <label className="stf-select">
               <span className="sr-only">Sort products</span>
               <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort products">
                 <option value="featured">Sort by: Featured</option>
@@ -343,55 +387,55 @@ export function Storefront({ sellerId }: { sellerId: string }) {
                 <option value="name">Name: A to Z</option>
               </select>
             </label>
-            <div className="store-layout-toggle" role="group" aria-label="Layout">
-              <button type="button" className={layout === "grid" ? "active" : ""} aria-pressed={layout === "grid"} aria-label="Grid view" onClick={() => setLayout("grid")}>▦</button>
-              <button type="button" className={layout === "list" ? "active" : ""} aria-pressed={layout === "list"} aria-label="List view" onClick={() => setLayout("list")}>☰</button>
+            <div className="stf-layout" role="group" aria-label="Layout">
+              <button type="button" className={layout === "grid" ? "is-on" : ""} aria-pressed={layout === "grid"} aria-label="Grid view" onClick={() => setLayout("grid")}>▦</button>
+              <button type="button" className={layout === "list" ? "is-on" : ""} aria-pressed={layout === "list"} aria-label="List view" onClick={() => setLayout("list")}>☰</button>
             </div>
           </div>
 
           {products.length ? (
             visibleProducts.length ? (
-              <div className={`store-item-grid ${layout}`}>
+              <div className={layout === "list" ? "stf-grid is-list" : "stf-grid"}>
                 {visibleProducts.map((product) => (
-                  <article className="store-item-card" key={product.id} onClick={() => openDetails(product)}>
-                    <div className="store-item-art">
+                  <article className="stf-item" key={product.id} onClick={() => openDetails(product)}>
+                    <div className="stf-item-art">
                       {product.imageUrl
-                        ? <Image src={product.imageUrl} alt={product.name} fill quality={90} sizes="(max-width: 700px) 45vw, 240px" className="store-item-image" />
-                        : <span className="store-item-emoji" aria-hidden="true">🧺</span>}
-                      {product.category && <span className="store-item-tag">{product.category}</span>}
+                        ? <Image src={product.imageUrl} alt={product.name} fill quality={90} sizes="(max-width: 700px) 45vw, 240px" />
+                        : <span className="stf-item-emoji" aria-hidden="true">🧺</span>}
+                      {product.category && <span className="stf-item-tag">{product.category}</span>}
                       <button
                         type="button"
-                        className={favourites.some((item) => item.id === product.id) ? "store-item-save saved" : "store-item-save"}
+                        className={favourites.some((item) => item.id === product.id) ? "stf-save is-saved" : "stf-save"}
                         aria-label={`${favourites.some((item) => item.id === product.id) ? "Remove" : "Save"} ${product.name} ${favourites.some((item) => item.id === product.id) ? "from" : "to"} favourites`}
                         aria-pressed={favourites.some((item) => item.id === product.id)}
                         onClick={(event) => { event.stopPropagation(); toggleFavourite(product); }}
                       >♥</button>
                     </div>
-                    <div className="store-item-info">
+                    <div className="stf-item-body">
                       <h3>{product.name}</h3>
-                      <p>{product.category || "SureFood listing"}</p>
-                      <div className="store-item-price">
+                      <small>{product.category || "Sure Foodz listing"}</small>
+                      <div className="stf-price">
                         <strong>{money(product.priceMinor, product.currency)}</strong>
-                        {product.compareAtMinor && product.compareAtMinor > product.priceMinor && <del>{money(product.compareAtMinor, product.currency)}</del>}
+                        {product.compareAtMinor && product.compareAtMinor > product.priceMinor && <s>{money(product.compareAtMinor, product.currency)}</s>}
                       </div>
-                      <div className="store-item-actions">
-                        <button type="button" className="store-item-details" onClick={(event) => { event.stopPropagation(); openDetails(product); }}>View item details</button>
+                      <div className="stf-item-actions">
+                        <button type="button" className="stf-details" onClick={(event) => { event.stopPropagation(); openDetails(product); }}>Details</button>
                         <button
                           type="button"
-                          className="store-item-add"
+                          className="stf-add"
                           disabled={product.stock <= 0}
                           onClick={(event) => { event.stopPropagation(); addToBasket(product, 1); }}
-                        >🛒 {product.stock <= 0 ? "Out of stock" : "Add to cart"}</button>
+                        >{product.stock <= 0 ? "Out of stock" : "Add to cart"}</button>
                       </div>
                     </div>
                   </article>
                 ))}
                 {products.length < 3 && (
-                  <article className="store-item-placeholder">
-                    <span className="store-placeholder-icon" aria-hidden="true">📦</span>
+                  <article className="stf-placeholder">
+                    <span aria-hidden="true">📦</span>
                     <h3>More products coming soon</h3>
                     <p>{seller.name} is adding more quality products. Check back soon for more great items.</p>
-                    <Link href="/" className="store-follow-button">Browse the marketplace →</Link>
+                    <Link href="/shop">Browse the marketplace →</Link>
                   </article>
                 )}
               </div>
@@ -402,12 +446,12 @@ export function Storefront({ sellerId }: { sellerId: string }) {
             <p className="marketplace-empty">This store has no live products at the moment.</p>
           )}
         </section>
-      </div>
+      </main>
 
       {notice && (
         <div className={`store-notice ${noticeTone}`} role="status">
           <span>{notice}</span>
-          {noticeTone === "ok" && <Link href="/">Go to basket →</Link>}
+          {noticeTone === "ok" && <Link href="/cart">Go to basket →</Link>}
           <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}>×</button>
         </div>
       )}
@@ -431,11 +475,11 @@ export function Storefront({ sellerId }: { sellerId: string }) {
               {selected.category && <p className="product-modal-category">◈ {selected.category}</p>}
               <p className="product-modal-price">{money(selected.priceMinor, selected.currency)} <small>per unit</small></p>
               <div className="product-modal-perks">
-                <div><span aria-hidden="true">🌿</span><strong>Verified seller</strong><small>Reviewed by SureFood</small></div>
+                <div><span aria-hidden="true">🌿</span><strong>Verified seller</strong><small>Reviewed by Sure Foodz</small></div>
                 <div><span aria-hidden="true">🚚</span><strong>Seller delivery</strong><small>Fee confirmed before you pay</small></div>
                 <div><span aria-hidden="true">🛡</span><strong>Protected order</strong><small>Secure checkout</small></div>
               </div>
-              <h3>Product Details</h3>
+              <h3>Product details</h3>
               <p className="product-modal-description">{selected.description || "This seller has not added a description for this item yet."}</p>
               <dl className="product-modal-specs">
                 <div><dt>Seller</dt><dd>{seller.name}{seller.verified && <span className="verified-seller-badge">Verified</span>}</dd></div>
@@ -474,6 +518,8 @@ export function Storefront({ sellerId }: { sellerId: string }) {
           </section>
         </div>
       )}
-    </main>
+
+      <ShopFooter />
+    </div>
   );
 }

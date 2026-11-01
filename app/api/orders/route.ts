@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       { headers: { "cache-control": "private, no-store" } },
     );
   } catch (error) {
-    console.error("Could not load SureFood orders.", error);
+    console.error("Could not load Sure Foodz orders.", error);
     return jsonError("We could not load orders.", 500);
   }
 }
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
           transaction.update(snapshot.ref, { stock: stock - quantity, updatedAt: now });
           return {
             productId,
-            name: String(product.name ?? "SureFood product"),
+            name: String(product.name ?? "Sure Foodz product"),
             quantity,
             unitPriceMinor: priceMinor,
             lineTotalMinor: priceMinor * quantity,
@@ -212,12 +212,12 @@ export async function POST(request: Request) {
         const orderRef = orderRefs.get(sellerId)!;
         const order = {
           customerId: user.uid,
-          customerName: String(profile.displayName ?? user.name ?? "SureFood buyer"),
+          customerName: String(profile.displayName ?? user.name ?? "Sure Foodz buyer"),
           customerEmail: user.email ?? String(profile.email ?? ""),
           customerPhone,
           deliveryAddress,
           sellerId,
-          sellerName: String(seller.business?.businessName ?? seller.displayName ?? "SureFood seller"),
+          sellerName: String(seller.business?.businessName ?? seller.displayName ?? "Sure Foodz seller"),
           sellerRole: String(seller.role),
           items: orderItems,
           subtotalMinor,
@@ -262,7 +262,7 @@ export async function POST(request: Request) {
     if (code === "TOO_MANY_SELLERS") return jsonError("A single checkout can include products from up to 10 sellers.", 400);
     if (code === "CHECKOUT_ID_CONFLICT") return jsonError("This checkout request was already used for a different cart. Refresh and try again.", 409);
     if (code === "ORDER_TOTAL_INVALID") return jsonError("The order total is invalid.", 400);
-    console.error("Could not create SureFood orders.", error);
+    console.error("Could not create Sure Foodz orders.", error);
     return jsonError("We could not place your order. Please try again.", 500);
   }
 }

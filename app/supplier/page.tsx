@@ -9,6 +9,7 @@ import { uploadProductImage } from "@/lib/cloudinary-client";
 import { sellerCanManageListings, sellerNeedsApprovalFee } from "@/lib/auth/seller-verification";
 import { ProductCategoryPicker } from "@/app/components/product-category-picker";
 import { PayoutAccountForm } from "@/app/components/payout-account-form";
+import { BusinessLogo } from "@/app/components/business-logo";
 
 type SupplierTab =
   | "Dashboard"
@@ -134,6 +135,7 @@ export default function SupplierPage() {
   const isLocalTestMode = process.env.NODE_ENV === "development" &&
     account.profile?.email.toLowerCase() === process.env.NEXT_PUBLIC_SUREFOOD_TEST_LISTING_EMAIL?.trim().toLowerCase();
   const canListProducts = sellerCanManageListings(account.profile) || isLocalTestMode;
+  const businessName = account.profile?.business?.businessName?.trim() || account.profile?.displayName || "your store";
   const [notificationPreferences, setNotificationPreferences] = useState({
     newOrders: true,
     shipmentUpdates: true,
@@ -159,6 +161,21 @@ export default function SupplierPage() {
   const observedOrderStatuses = useRef(new Map<string, OrderStatus>());
   const hasObservedOrderList = useRef(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [businessLogoUrl, setBusinessLogoUrl] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (account.profile?.businessLogoUrl) setBusinessLogoUrl(account.profile.businessLogoUrl);
+  }, [account.profile]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (account.profile?.notificationPreferences) {
@@ -230,7 +247,7 @@ export default function SupplierPage() {
           nafdacNumber: product.nafdacNumber, productKind: product.productKind, emoji: "📦",
         })));
         setOrders(orderData.orders.map((order: { id: string; customerName?: string; customerPhone?: string; deliveryAddress?: string; items: { name: string; quantity: number }[]; totalMinor: number; deliveryFeeMinor?: number | null; paymentStatus?: string; status: OrderStatus }) => ({
-          id: order.id, buyer: order.customerName || "SureFood buyer",
+          id: order.id, buyer: order.customerName || "Sure Foodz buyer",
           item: order.items.map((item) => item.name).join(", "),
           quantity: order.items.map((item) => String(item.quantity)).join(", "),
           total: order.totalMinor / 100, status: order.status,
@@ -258,7 +275,7 @@ export default function SupplierPage() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not refresh orders.");
         if (active) setOrders(result.orders.map((order: { id: string; customerName?: string; customerPhone?: string; deliveryAddress?: string; items: { name: string; quantity: number }[]; totalMinor: number; deliveryFeeMinor?: number | null; paymentStatus?: string; status: OrderStatus }) => ({
-          id: order.id, buyer: order.customerName || "SureFood buyer",
+          id: order.id, buyer: order.customerName || "Sure Foodz buyer",
           item: order.items.map((item) => item.name).join(", "),
           quantity: order.items.map((item) => String(item.quantity)).join(", "),
           total: order.totalMinor / 100, status: order.status,
@@ -484,32 +501,33 @@ export default function SupplierPage() {
   if (account.error) return <main className="business-loading" role="alert">{account.error}</main>;
 
   return (
-    <main className="vendor-app">
-      <aside className="vendor-sidebar">
+    <main className={`vendor-app${menuOpen ? " menu-open" : ""}`}>
+      <aside className="vendor-sidebar" aria-label="Supplier workspace menu">
+        <button type="button" className="vendor-menu-close" aria-label="Close workspace menu" onClick={() => setMenuOpen(false)}>×</button>
         <div className="vendor-brand">
           <span className="vendor-brand-mark">✿</span>
           <span>Sure Food<small>Fresh Food · Better Life</small></span>
         </div>
         <div className="vendor-account">
-          <span className="vendor-account-icon">▣</span>
+          <BusinessLogo user={account.user} logoUrl={businessLogoUrl} name={businessName} onChange={(url) => { setBusinessLogoUrl(url); setWorkspaceError(""); }} onError={setWorkspaceError} className="vendor-account-logo" />
           <span><strong>{account.profile?.displayName}</strong><small>{isLocalTestMode ? "Local test mode" : canListProducts ? "✓ Verified Supplier" : "Verification pending"}</small></span>
           <span className="vendor-account-arrow">⌄</span>
         </div>
         <nav className="vendor-navigation" aria-label="Supplier dashboard">
           <span className="vendor-nav-heading">WORKSPACE</span>
           {navigation.slice(0, 5).map((item) => (
-            <button key={item.label} type="button" className={`vendor-nav-item${activeTab === item.label ? " active" : ""}`} aria-current={activeTab === item.label ? "page" : undefined} onClick={() => { setActiveTab(item.label); setSearch(""); setShowProductForm(false); }}>
+            <button key={item.label} type="button" className={`vendor-nav-item${activeTab === item.label ? " active" : ""}`} aria-current={activeTab === item.label ? "page" : undefined} onClick={() => { setActiveTab(item.label); setSearch(""); setShowProductForm(false); setMenuOpen(false); }}>
               <span className="vendor-nav-icon">{item.icon}</span><span className="vendor-nav-label">{item.label}</span>{item.badge && <span className="vendor-nav-badge">{item.badge}</span>}
             </button>
           ))}
           <span className="vendor-nav-heading vendor-nav-heading-spaced">GROW YOUR BUSINESS</span>
           {navigation.slice(5).map((item) => (
-            <button key={item.label} type="button" className={`vendor-nav-item${activeTab === item.label ? " active" : ""}`} aria-current={activeTab === item.label ? "page" : undefined} onClick={() => { setActiveTab(item.label); setSearch(""); setShowProductForm(false); }}>
+            <button key={item.label} type="button" className={`vendor-nav-item${activeTab === item.label ? " active" : ""}`} aria-current={activeTab === item.label ? "page" : undefined} onClick={() => { setActiveTab(item.label); setSearch(""); setShowProductForm(false); setMenuOpen(false); }}>
               <span className="vendor-nav-icon">{item.icon}</span><span className="vendor-nav-label">{item.label}</span>
             </button>
           ))}
         </nav>
-        <button type="button" className="vendor-growth-card" onClick={() => setActiveTab("Bulk Orders")}>
+        <button type="button" className="vendor-growth-card" onClick={() => { setActiveTab("Bulk Orders"); setMenuOpen(false); }}>
           <strong>Powering<br />food businesses</strong>
           <span>Grow your reach with bulk buyers.</span>
           <span className="vendor-growth-cta">Manage your supply →</span>
@@ -518,11 +536,14 @@ export default function SupplierPage() {
         <div className="vendor-sidebar-footer"><span className="vendor-brand-mark">✿</span><span>Sure Food<small>Supplier workspace</small></span></div>
       </aside>
 
+      {menuOpen && <button type="button" className="vendor-menu-backdrop" aria-label="Close workspace menu" onClick={() => setMenuOpen(false)} />}
+
       <div className="vendor-workspace">
         <header className="vendor-topbar">
+          <button type="button" className="vendor-mobile-menu" aria-label="Open workspace menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><span aria-hidden="true">☰</span></button>
           <label className="vendor-search"><span>⌕</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${activeTab === "Dashboard" ? "products, orders, or customers" : activeTab.toLowerCase()}...`} aria-label="Search supplier workspace" /></label>
           <button type="button" className="vendor-notifications" aria-label="Open order notifications" onClick={() => { setActiveTab("Orders"); setOrderNotice(""); }}>♧{orders.some((order) => !["Delivered", "Cancelled/Refund"].includes(order.status)) && <i>{orders.filter((order) => !["Delivered", "Cancelled/Refund"].includes(order.status)).length > 9 ? "9+" : orders.filter((order) => !["Delivered", "Cancelled/Refund"].includes(order.status)).length}</i>}</button>
-          <button type="button" className="vendor-user"><span className="vendor-avatar">{(account.profile?.displayName ?? "Seller").slice(0, 2).toUpperCase()}</span><span><strong>{account.profile?.displayName}</strong><small>Supplier <span>⌄</span></small></span></button>
+          <button type="button" className="vendor-user"><span className="vendor-avatar">{businessLogoUrl ? <Image src={businessLogoUrl} alt={`${businessName} logo`} width={32} height={32} unoptimized /> : (account.profile?.displayName ?? "Seller").slice(0, 2).toUpperCase()}</span><span><strong>{account.profile?.displayName}</strong><small>Supplier <span>⌄</span></small></span></button>
           {!canListProducts && <Link href="/onboarding" className="vendor-store-link">Verify business</Link>}
           <Link href="/supplier/store" className="vendor-store-link">View store ↗</Link>
         </header>
@@ -542,9 +563,7 @@ export default function SupplierPage() {
             : <p className="workspace-api-error" role="status">Verify your supplier account before adding a payout bank account.</p>)}
           {activeTab === "Dashboard" && (
             <>
-              <button type="button" className="vendor-banner" onClick={() => setActiveTab("Bulk Orders")} aria-label="Open bulk orders">
-                <Image src="/images/supplier-bulk-banner.jpg" alt="Sell in bulk. Grow bigger. Add a bulk product." fill priority sizes="(max-width: 1100px) 100vw, 75vw" />
-              </button>
+              <BulkBanner onAddProduct={openProducts} />
               <div className="vendor-stat-grid">
                 <Metric icon="▦" label="Total Products" value={String(products.length)} trend="Live" note="your catalogue" />
                 <Metric icon="▣" label="Bulk Orders" value={String(orders.length)} trend="Live" note="all order statuses" />
@@ -603,6 +622,29 @@ export default function SupplierPage() {
         <footer className="vendor-footer"><span>© 2025 Sure Food Supplier</span><span>Support</span><span>Terms &amp; Conditions</span><span>Privacy Policy</span><Link href="/">Back to shop</Link></footer>
       </div>
     </main>
+  );
+}
+
+function BulkBanner({ onAddProduct }: { onAddProduct: () => void }) {
+  return (
+    <section className="vendor-banner" aria-label="Bulk orders">
+      <span className="vendor-banner-curve is-a" aria-hidden="true" />
+      <span className="vendor-banner-curve is-b" aria-hidden="true" />
+      <span className="vendor-banner-ring" aria-hidden="true" />
+      <span className="vendor-banner-dot" aria-hidden="true" />
+      <div className="vendor-banner-copy">
+        <span className="vendor-banner-eyebrow">Wholesale &amp; bulk supply</span>
+        <h2>Sell in bulk, <em>grow bigger</em></h2>
+        <p>Provide high-quality products at wholesale prices. Manage bulk orders, track demand, and supply trusted partners across the Sure Foodz network.</p>
+        <div className="vendor-banner-actions">
+          <button type="button" className="vendor-banner-cta" onClick={onAddProduct}>Add Bulk Product →</button>
+          <span className="vendor-banner-ghost">Minimum order quantity</span>
+        </div>
+      </div>
+      <div className="vendor-banner-art">
+        <img src="/images/hero-produce.webp" alt="Fresh produce ready for wholesale supply" />
+      </div>
+    </section>
   );
 }
 
@@ -686,7 +728,7 @@ function InventoryPanel({ products, onRestock }: { products: VendorProduct[]; on
 function BulkOrdersPanel({ orders, onStatusChange, onQuoteDelivery, onAddProduct, onViewOrders }: { orders: SupplierOrder[]; onStatusChange: (orderId: string, status: OrderStatus) => void; onQuoteDelivery: (orderId: string, deliveryFeeMinor: number) => void; onAddProduct: () => void; onViewOrders: () => void }) {
   return (
     <>
-      <button type="button" className="vendor-banner bulk-order-banner" onClick={onAddProduct} aria-label="Add a product to bulk orders"><Image src="/images/supplier-bulk-banner.jpg" alt="Sell in bulk. Grow bigger. Add a bulk product." fill sizes="(max-width: 1100px) 100vw, 75vw" /></button>
+      <BulkBanner onAddProduct={onAddProduct} />
       <div className="vendor-stat-grid"><Metric icon="▣" label="Bulk Orders" value={String(orders.length)} trend="Live" note="all order statuses" /><Metric icon="◷" label="Awaiting fulfillment" value={String(orders.filter((order) => !["Delivered", "Cancelled/Refund"].includes(order.status)).length)} trend="Live" note="open orders" /><Metric icon="✓" label="Delivered Orders" value={String(orders.filter((order) => order.status === "Delivered").length)} trend="Live" note="completed orders" /><Metric icon="₦" label="Delivered Revenue" value={currency.format(orders.filter((order) => order.status === "Delivered").reduce((sum, order) => sum + order.total, 0))} trend="Live" note="delivered orders only" /></div>
       <section className="vendor-panel"><div className="vendor-panel-heading"><div><h2>Bulk order management</h2><p>Set your delivery fee, then prepare orders after the buyer pays.</p></div><button type="button" className="vendor-outline-button" onClick={onViewOrders}>All order statuses →</button></div><div className="bulk-benefits"><span>✓ Quote seller-handled delivery</span><span>✓ Buyer pays securely through Paystack</span><span>✓ Prepare and mark paid orders ready</span></div><OrdersTable orders={orders} onStatusChange={onStatusChange} onQuoteDelivery={onQuoteDelivery} onView={onViewOrders} /></section>
     </>
@@ -747,13 +789,13 @@ function OverviewPanel({ activeTab, onNavigate, profile, products, orders, notif
 
       {activeTab === "Shipments & Delivery" && <WorkspaceTable title="Orders requiring delivery" headers={["Order", "Buyer", "Products", "Status"]} rows={orders.filter((order) => order.status === "Ready" || order.status === "Delivered").map((order) => [order.id, order.buyer, order.item, order.status])} />}
 
-      {activeTab === "Payouts" && <div className="payout-summary"><div><span>Seller funds are sent manually by SureFood</span><strong>Manual payouts</strong><small>Use the verified business bank account in Payouts after approval.</small></div></div>}
+      {activeTab === "Payouts" && <div className="payout-summary"><div><span>Seller funds are sent manually by Sure Foodz</span><strong>Manual payouts</strong><small>Use the verified business bank account in Payouts after approval.</small></div></div>}
 
       {activeTab === "Analytics" && <WorkspaceTable title="Orders by status" headers={["Status", "Orders"]} rows={orderStatuses.map((status) => [status, String(orders.filter((order) => order.status === status).length)])} />}
 
       {activeTab === "Supplier Profile" && <div className="supplier-profile-details"><div className="supplier-profile-avatar">{(profile?.displayName ?? "Seller").slice(0, 2).toUpperCase()}</div><div><span className={profile?.verificationStatus === "approved" ? "profile-verified" : "order-status processing"}>{profile?.verificationStatus === "approved" ? "✓ Verified supplier" : `Verification ${profile?.verificationStatus.replaceAll("_", " ") ?? "incomplete"}`}</span><h3>{profile?.business?.businessName || profile?.displayName}</h3><dl><dt>Business location</dt><dd>{profile?.location || "Not provided"}</dd><dt>Email address</dt><dd>{profile?.email || "Not provided"}</dd><dt>Phone number</dt><dd>{profile?.phone || "Not provided"}</dd><dt>Country</dt><dd>{profile?.business?.country || "Not provided"}</dd></dl></div></div>}
 
-      {activeTab === "Settings" && <div className="supplier-settings"><h3>Notification preferences</h3><p className="vendor-empty-search">These preferences are saved to your account. SureFood email alerts are not yet available.</p>{settingsSaved && <p className="vendor-success" role="status">Settings saved.</p>}{settings.map((setting) => <label className="supplier-setting" key={setting.key}><span><strong>{setting.label}</strong><small>{setting.description}</small></span><input type="checkbox" checked={notificationPreferences[setting.key]} onChange={(event) => onPreferenceChange(setting.key, event.target.checked)} /></label>)}</div>}
+      {activeTab === "Settings" && <div className="supplier-settings"><h3>Notification preferences</h3><p className="vendor-empty-search">These preferences are saved to your account. Sure Foodz email alerts are not yet available.</p>{settingsSaved && <p className="vendor-success" role="status">Settings saved.</p>}{settings.map((setting) => <label className="supplier-setting" key={setting.key}><span><strong>{setting.label}</strong><small>{setting.description}</small></span><input type="checkbox" checked={notificationPreferences[setting.key]} onChange={(event) => onPreferenceChange(setting.key, event.target.checked)} /></label>)}</div>}
       </section>
       <section className="vendor-panel overview-actions"><div className="vendor-panel-heading"><div><h2>Quick links</h2><p>Continue managing your business</p></div></div>{actionTabs.map((tab) => <QuickAction key={tab} icon={navigation.find((item) => item.label === tab)?.icon ?? "→"} label={tab} description={tabDescriptions[tab]} onClick={() => onNavigate(tab)} />)}</section>
     </div>

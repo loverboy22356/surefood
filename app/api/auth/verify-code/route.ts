@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return jsonError("Enter the six-digit code sent to your email.", 400);
   }
   if (!firebaseAdminConfigured() || !process.env.OTP_HASH_SECRET) {
-    return jsonError("Email sign-in is not configured yet. Please contact SureFood support.", 503);
+    return jsonError("Email sign-in is not configured yet. Please contact Sure Foodz support.", 503);
   }
 
   const digestId = createHmac("sha256", process.env.OTP_HASH_SECRET).update(email).digest("hex");
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     });
     if (result.valid) challenge = result.challenge;
   } catch (error) {
-    console.error("Could not verify SureFood sign-in code.", error);
+    console.error("Could not verify Sure Foodz sign-in code.", error);
     return jsonError("We could not verify that code. Try again shortly.", 500);
   }
 
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     const effectiveChallengeRole = email === adminOverrideEmail ? "staff" : challenge.role;
     let role = profileSnapshot.data()?.role as string | undefined;
     if (role === "staff" || role === "admin" || challenge.role === "staff" || challenge.role === "admin") {
-      return jsonError("Staff accounts sign in through the SureFood admin portal.", 403);
+      return jsonError("Staff accounts sign in through the Sure Foodz admin portal.", 403);
     }
     if (profileSnapshot.exists && challenge.purpose === "signup" && role !== effectiveChallengeRole) {
       return jsonError(
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
       profile: { uid: user.uid, email, role, verificationStatus: profileSnapshot.data()?.verificationStatus ?? (role === "buyer" ? "not_required" : "incomplete") },
     });
   } catch (error) {
-    console.error("Could not finish SureFood sign-in.", error);
+    console.error("Could not finish Sure Foodz sign-in.", error);
     return jsonError("We could not finish signing you in. Request a new code and try again.", 500);
   }
 }

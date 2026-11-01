@@ -130,7 +130,7 @@ export async function POST(request: Request) {
 
     const profile = await db.collection("users").doc(user.uid).get();
     const profileName = cleanString(profile.data()?.displayName, 120);
-    const name = profileName || cleanString(user.name, 120) || "SureFood affiliate";
+    const name = profileName || cleanString(user.name, 120) || "Sure Foodz affiliate";
     const email = String(user.email ?? profile.data()?.email ?? "").toLowerCase();
 
     // Make sure the code is unique before it goes on a link.

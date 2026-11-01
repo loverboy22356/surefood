@@ -5,11 +5,11 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  background-color: #120b20;
+  background-color: #000000;
 }
 
 html[data-theme="dark"] body {
-  background-color: #120b20;
+  background-color: #000000;
   color: #ece6f8;
 }
 
@@ -60,3 +60,7 @@ html[data-theme="dark"] .theme-pill-knob { background: #d9c6ff; }
   .theme-pill-knob { width: 14px; height: 14px; }
   .theme-pill.is-dark .theme-pill-knob { transform: translateX(16px); }
 }
+
+/* The generated dark theme brightens the sun badge; keep its label readable. */
+html[data-theme="dark"] .hm-offer-badge,
+html[data-theme="dark"] .hm-offer-badge strong { color: #3b1d00; }

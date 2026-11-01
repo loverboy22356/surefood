@@ -1,0 +1,341 @@
+/* Buyer home: vendor cards, product rail and shopping promos. */
+
+.sf-vendors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sf-vendor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--sf-line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: var(--sf-ink);
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+}
+
+html[data-theme="dark"] .sf-vendor { background: #101010; }
+
+.sf-vendor:hover {
+  box-shadow: var(--sf-shadow);
+  transform: translateY(-2px);
+  border-color: #d8d8e2;
+}
+
+.sf-vendor-mark {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #eaf0ff, #dbe6ff);
+  color: #1b3fa0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .5px;
+}
+
+html[data-theme="dark"] .sf-vendor-mark { background: linear-gradient(135deg, #1e2740, #26314f); color: #b9caff; }
+
+.sf-vendor-copy { min-width: 0; display: grid; gap: 2px; }
+.sf-vendor-copy b {
+  font-size: 12.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sf-vendor-copy small { font-size: 10.5px; color: var(--sf-muted); }
+
+.sf-vendor-cta {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1b6cff;
+  white-space: nowrap;
+}
+
+.sf-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(190px, 1fr);
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.sf-rail > * { scroll-snap-align: start; }
+
+.sf-promos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sf-promo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--sf-line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: var(--sf-ink);
+  background: linear-gradient(135deg, #fbfbff, #f4f6ff);
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+
+html[data-theme="dark"] .sf-promo {
+  background: linear-gradient(135deg, #1a1727, #1f1b33);
+}
+
+.sf-promo:hover { box-shadow: var(--sf-shadow); transform: translateY(-2px); }
+.sf-promo b { display: block; font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.sf-promo small { display: block; font-size: 11px; color: var(--sf-muted); line-height: 1.45; }
+.sf-promo i {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #14151a;
+  color: #fff;
+  font-style: normal;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .sf-vendors { grid-template-columns: minmax(0, 1fr); }
+  .sf-promos { grid-template-columns: minmax(0, 1fr); }
+  .sf-rail { grid-auto-columns: minmax(160px, 1fr); }
+}
+
+/* Four-across deal row on desktop, two on phones. */
+.sf-grid.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+@media (max-width: 760px) {
+  .sf-grid.is-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Denser shelf: fixed-width rail cards so the row scrolls like the reference. */
+.sf-rail { grid-auto-columns: 196px; gap: 12px; }
+@media (max-width: 760px) { .sf-rail { grid-auto-columns: 152px; } }
+/* ---- trust strip: line icons and small caps ---- */
+
+.sf-trust-icon {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: #4a4c58;
+}
+
+html[data-theme="dark"] .sf-trust-icon { color: #cdcada; }
+.sf-trust-icon svg { width: 24px; height: 24px; }
+
+.sf-trust-item b {
+  text-transform: uppercase;
+  letter-spacing: .45px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ---- shop by store tiles ---- */
+
+.sf-brand-tile {
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: #f6f6f8;
+  border-color: #eeeef2;
+  letter-spacing: 0;
+}
+
+html[data-theme="dark"] .sf-brand-tile { background: #161616; border-color: #2a2a2a; }
+
+.sf-brand-monogram {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #14151a;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  box-shadow: 0 2px 8px -4px rgba(16, 18, 27, .35);
+}
+
+html[data-theme="dark"] .sf-brand-monogram { background: #1f1f1f; color: #f2f1f6; }
+
+.sf-brand-name {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sf-brand-tile.is-ghost {
+  background: #fff;
+  border: 1px dashed #d5d6de;
+  color: #6f7280;
+}
+
+/* ---- vendor artwork cards ---- */
+
+.sf-vendor-card {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-height: 168px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: #14151a;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.sf-vendor-card:hover { transform: translateY(-2px); box-shadow: var(--sf-shadow); }
+
+.sf-vendor-card.tone-1 { background: #1c1c22; color: #fff; }
+.sf-vendor-card.tone-2 { background: #fdf3d8; }
+.sf-vendor-card.tone-3 { background: #fdeee4; }
+
+.sf-vendor-tag {
+  justify-self: start;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .16);
+}
+
+.sf-vendor-card.tone-2 .sf-vendor-tag,
+.sf-vendor-card.tone-3 .sf-vendor-tag { background: rgba(0, 0, 0, .06); }
+
+.sf-vendor-art {
+  position: absolute;
+  right: 6px;
+  top: 26px;
+  width: 52%;
+  height: 106px;
+  display: grid;
+  place-items: center;
+}
+
+.sf-vendor-art img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .22)); }
+.sf-vendor-emoji { font-size: 46px; }
+
+.sf-vendor-off {
+  align-self: end;
+  max-width: 56%;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.3px;
+  line-height: 1.2;
+  color: #f5c542;
+}
+
+.sf-vendor-card.tone-2 .sf-vendor-off,
+.sf-vendor-card.tone-3 .sf-vendor-off { color: #b45309; }
+
+.sf-vendor-count {
+  max-width: 60%;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, .62);
+}
+
+.sf-vendor-card.tone-2 .sf-vendor-count,
+.sf-vendor-card.tone-3 .sf-vendor-count { color: #6f6a5c; }
+
+/* ---- rich shelf cards ---- */
+
+.sf-rail { grid-auto-columns: 236px; }
+
+.sf-card-rich .sf-card-art { aspect-ratio: 4 / 3; }
+.sf-card-rich .sf-card-title { min-height: 0; }
+
+.sf-card-desc {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--sf-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sf-card-actions {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  gap: 6px;
+  align-items: center;
+}
+
+.sf-card-heart,
+.sf-card-eye {
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--sf-line);
+  background: #fff;
+  color: #8f90a0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+html[data-theme="dark"] .sf-card-heart,
+html[data-theme="dark"] .sf-card-eye { background: #1a1a1a; }
+
+.sf-card-heart.is-on { color: #ff3b5c; border-color: #ffd0d8; background: #fff5f7; }
+
+.sf-card-buy {
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: #1b6cff;
+  color: #fff;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sf-card-buy:hover { background: #0f5bea; }
+.sf-card-buy[disabled] { background: #b9bac4; cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .sf-rail { grid-auto-columns: 168px; }
+  .sf-vendor-card { min-height: 148px; }
+  .sf-vendor-art { width: 46%; height: 84px; top: 34px; }
+}
+
+/* Vendor card: keep the label compact and the artwork clear of the copy. */
+.sf-vendor-tag { align-self: start; justify-self: start; height: fit-content; }
+.sf-vendor-art { width: 44%; }
+.sf-vendor-off { max-width: 52%; }
+.sf-vendor-count { max-width: 56%; }

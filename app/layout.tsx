@@ -12,8 +12,15 @@ import { ThemeProvider } from "./components/theme-provider";
 import { themeInitScript } from "./components/theme-script";
 
 export const metadata: Metadata = {
-  title: "SureFood | Fresh, good food",
-  description: "Discover fresh groceries and everyday favourites at SureFood.",
+  title: "Sure Foodz | Fresh, good food",
+  description: "Discover fresh groceries and everyday favourites at Sure Foodz — pay later, order for events, and buy from verified local sellers.",
+  applicationName: "Sure Foodz",
+  openGraph: {
+    title: "Sure Foodz",
+    description: "Fresh food from verified local sellers across Nigeria.",
+    siteName: "Sure Foodz",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

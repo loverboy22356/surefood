@@ -67,7 +67,7 @@ export default function PayLaterQueuePage() {
         const isStaffUser = token.claims.role === "staff" || token.claims.role === "admin";
         setStaff(isStaffUser);
         if (!isStaffUser) {
-          setError("A SureFood staff or admin account is required to review Pay Later applications.");
+          setError("A Sure Foodz staff or admin account is required to review Pay Later applications.");
           return;
         }
         await loadQueue(currentUser);
@@ -108,7 +108,7 @@ export default function PayLaterQueuePage() {
   return (
     <main className="manual-review-page">
       <header className="manual-review-header">
-        <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
+        <Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>foodz</span></span></Link>
         <div>
           <span>STAFF WORKSPACE</span>
           <h1>Pay Later applications</h1>
@@ -128,7 +128,7 @@ export default function PayLaterQueuePage() {
       {notice && <p className="manual-review-notice" role="status">{notice}</p>}
 
       {!authReady ? <p className="manual-review-empty">Checking staff access…</p>
-        : !user ? <p className="manual-review-empty">Sign in with a SureFood staff account to review applications. <Link href="/login">Sign in →</Link></p>
+        : !user ? <p className="manual-review-empty">Sign in with a Sure Foodz staff account to review applications. <Link href="/login">Sign in →</Link></p>
           : staff && loading && applications.length === 0 ? <p className="manual-review-empty">Loading applications…</p>
             : staff && applications.length === 0 ? <section className="manual-review-empty">No Pay Later applications are waiting for review.</section>
               : staff && (

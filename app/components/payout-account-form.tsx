@@ -67,7 +67,7 @@ export function PayoutAccountForm({ user, businessName }: { user: User | null; b
       if (!response.ok) throw new Error(result.error || "Could not save payout account.");
       setPayoutAccount(result.payoutAccount);
       setAccountNumber("");
-      setNotice("Bank account verified against your approved business name. SureFood seller payouts are currently handled manually.");
+      setNotice("Bank account verified against your approved business name. Sure Foodz seller payouts are currently handled manually.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save payout account.");
     } finally {
@@ -86,7 +86,7 @@ export function PayoutAccountForm({ user, businessName }: { user: User | null; b
           <button className="vendor-primary-button" type="submit" disabled={saving}>{saving ? "Verifying account…" : payoutAccount ? "Verify replacement account" : "Verify and save account"}</button>
         </form>
       )}
-      <p className="payout-account-note">Paystack verifies the account holder before it is saved. Buyer payments go to SureFood; seller payouts are not automatic and are paid manually.</p>
+      <p className="payout-account-note">Paystack verifies the account holder before it is saved. Buyer payments go to Sure Foodz; seller payouts are not automatic and are paid manually.</p>
       {error && <p className="workspace-api-error" role="alert">{error}</p>}
       {notice && <p className="vendor-success" role="status">{notice}</p>}
     </section>

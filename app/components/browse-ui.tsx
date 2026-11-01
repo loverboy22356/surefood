@@ -28,7 +28,7 @@ export function productLocationLabel(product: MarketplaceProduct) {
 export function productSubtitle(product: MarketplaceProduct) {
   const source = product.productKind ? roleLabels[product.productKind] ?? "" : "";
   const parts = [product.category, source].filter(Boolean);
-  return parts.join(" • ") || "Fresh from an approved SureFood seller";
+  return parts.join(" • ") || "Fresh from an approved Sure Foodz seller";
 }
 
 export function BrowseHeader({
@@ -52,12 +52,12 @@ export function BrowseHeader({
 }) {
   return (
     <header className="shop-header">
-      <Link href="/" className="shop-logo brand" aria-label="SureFood home">
+      <Link href="/" className="shop-logo brand" aria-label="Sure Foodz home">
         <span className="shop-logo-mark" aria-hidden="true">
           <span>s</span>
         </span>
         <span className="shop-logo-copy">
-          <strong>sure<span>food</span></strong>
+          <strong>sure<span>foodz</span></strong>
           <small>Fresh Food • Better Life</small>
         </span>
       </Link>
@@ -322,7 +322,7 @@ export function BrowseProductCard({
       </div>
       <div className="browse-card-body">
         <div className="browse-card-seller">
-          <span>{product.sellerName || "SureFood seller"}</span>
+          <span>{product.sellerName || "Sure Foodz seller"}</span>
           {product.sellerVerified && <span className="browse-card-verified" aria-label="Verified seller">✓</span>}
           <span className="browse-card-role">{role}</span>
         </div>

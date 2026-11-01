@@ -62,12 +62,12 @@ export default function AdminCategoriesPage() {
   return (
     <main className="manual-review-page">
       <header className="manual-review-header">
-        <Link href="/admin/verification" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link>
+        <Link href="/admin/verification" className="brand"><span className="brand-mark">s</span><span>sure<span>foodz</span></span></Link>
         <div><span>STAFF WORKSPACE</span><h1>Product categories</h1><p>Categories created here are available to sellers when they list products.</p></div>
         <Link href="/admin/verification">Business verification →</Link>
       </header>
-      {!user ? <p className="manual-review-empty">Sign in with a SureFood staff account to manage categories. <Link href="/login">Sign in →</Link></p>
-        : !staff ? <p className="manual-review-alert" role="alert">A SureFood staff or admin account is required.</p>
+      {!user ? <p className="manual-review-empty">Sign in with a Sure Foodz staff account to manage categories. <Link href="/login">Sign in →</Link></p>
+        : !staff ? <p className="manual-review-alert" role="alert">A Sure Foodz staff or admin account is required.</p>
           : <section className="manual-review-list">
             <article className="manual-review-card">
               <h2>Add category</h2>

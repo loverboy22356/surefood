@@ -57,7 +57,8 @@ export async function GET(request: Request) {
         ...product,
         sellerName: typeof business.businessName === "string" && business.businessName
           ? business.businessName
-          : String(seller.displayName ?? "SureFood seller"),
+          : String(seller.displayName ?? "Sure Foodz seller"),
+        sellerLogoUrl: typeof seller.businessLogoUrl === "string" ? seller.businessLogoUrl : "",
         sellerRole: seller.role,
         sellerVerified: true,
         sellerCity: String(business.city ?? ""),
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
     });
     return Response.json({ products: activeProducts });
   } catch (error) {
-    console.error("Could not load the SureFood product catalog.", error);
+    console.error("Could not load the Sure Foodz product catalog.", error);
     return jsonError("The product catalog is temporarily unavailable.", 500);
   }
 }
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
   }
   if (!process.env.CLOUDINARY_CLOUD_NAME ||
       !imageUrl.startsWith(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`)) {
-    return jsonError("Product images must be uploaded to SureFood Cloudinary storage.", 400);
+    return jsonError("Product images must be uploaded to Sure Foodz Cloudinary storage.", 400);
   }
 
   try {
@@ -179,7 +180,7 @@ export async function POST(request: Request) {
     await batch.commit();
     return Response.json({ product: { id: productRef.id, ...product } }, { status: 201 });
   } catch (error) {
-    console.error("Could not create a SureFood product.", error);
+    console.error("Could not create a Sure Foodz product.", error);
     return jsonError("We could not save this product.", 500);
   }
 }

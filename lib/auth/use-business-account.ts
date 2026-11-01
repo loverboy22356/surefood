@@ -10,6 +10,7 @@ export type BusinessProfile = {
   email: string;
   role: "buyer" | "vendor" | "supplier";
   displayName: string;
+  businessLogoUrl?: string;
   verificationStatus: string;
   approvalFeeMinor?: number;
   approvalFeeCurrency?: string;

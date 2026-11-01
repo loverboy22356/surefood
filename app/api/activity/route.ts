@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       }));
     return Response.json({ activities: result });
   } catch (error) {
-    console.error("Could not load SureFood activity history.", error);
+    console.error("Could not load Sure Foodz activity history.", error);
     return jsonError("We could not load activity history.", 500);
   }
 }

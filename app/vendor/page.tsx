@@ -9,6 +9,7 @@ import { uploadProductImage } from "@/lib/cloudinary-client";
 import { sellerCanManageListings, sellerNeedsApprovalFee } from "@/lib/auth/seller-verification";
 import { ProductCategoryPicker } from "@/app/components/product-category-picker";
 import { PayoutAccountForm } from "@/app/components/payout-account-form";
+import { BusinessLogo } from "@/app/components/business-logo";
 
 type VendorView = "Overview" | "Products" | "Customer orders" | "Inventory" | "Customers" | "Promotions" | "Payout account" | "Buy from suppliers" | "Supplier orders";
 type CustomerOrderStatus = "Pending seller confirmation" | "Awaiting buyer payment" | "Paid" | "Processing" | "Ready" | "Delivered" | "Cancelled/Refund";
@@ -83,6 +84,7 @@ function statusClass(status: string) {
 export default function VendorPage() {
   const account = useBusinessAccount("vendor");
   const canListProducts = sellerCanManageListings(account.profile);
+  const businessName = account.profile?.business?.businessName?.trim() || account.profile?.displayName || "your store";
   const [activeView, setActiveView] = useState<VendorView>("Overview");
   const [products, setProducts] = useState<RetailProduct[]>([]);
   const [orders, setOrders] = useState<RetailOrder[]>([]);
@@ -100,6 +102,7 @@ export default function VendorPage() {
   const observedOrderStatuses = useRef(new Map<string, CustomerOrderStatus>());
   const hasObservedOrderList = useRef(false);
   const [workspaceError, setWorkspaceError] = useState("");
+  const [businessLogoUrl, setBusinessLogoUrl] = useState("");
   const [supplierListings, setSupplierListings] = useState<SupplierListing[]>([]);
   const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [supplyError, setSupplyError] = useState("");
@@ -134,6 +137,10 @@ export default function VendorPage() {
     if (account.user) void loadSupplyWorkspace();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.user]);
+
+  useEffect(() => {
+    if (account.profile?.businessLogoUrl) setBusinessLogoUrl(account.profile.businessLogoUrl);
+  }, [account.profile]);
 
   async function orderFromSupplier(product: SupplierListing, quantity: number) {
     if (!account.user) return;
@@ -228,7 +235,7 @@ export default function VendorPage() {
           expiryDate: product.expiryDate, nafdacNumber: product.nafdacNumber, emoji: "🧺", sales: 0,
         })));
         setOrders(orderData.orders.map((order: { id: string; customerName?: string; customerPhone?: string; deliveryAddress?: string; items: { name: string }[]; totalMinor: number; deliveryFeeMinor?: number | null; paymentStatus?: string; status: CustomerOrderStatus }) => ({
-          id: order.id, customer: order.customerName || "SureFood customer",
+          id: order.id, customer: order.customerName || "Sure Foodz customer",
           item: order.items.map((item) => item.name).join(", "), total: order.totalMinor / 100, status: order.status,
           deliveryFeeMinor: order.deliveryFeeMinor, paymentStatus: order.paymentStatus,
           deliveryAddress: order.deliveryAddress, customerPhone: order.customerPhone,
@@ -254,7 +261,7 @@ export default function VendorPage() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not refresh orders.");
         if (active) setOrders(result.orders.map((order: { id: string; customerName?: string; customerPhone?: string; deliveryAddress?: string; items: { name: string }[]; totalMinor: number; deliveryFeeMinor?: number | null; paymentStatus?: string; status: CustomerOrderStatus }) => ({
-          id: order.id, customer: order.customerName || "SureFood customer",
+          id: order.id, customer: order.customerName || "Sure Foodz customer",
           item: order.items.map((item) => item.name).join(", "),
           total: order.totalMinor / 100, status: order.status,
           deliveryFeeMinor: order.deliveryFeeMinor, paymentStatus: order.paymentStatus,
@@ -543,7 +550,7 @@ export default function VendorPage() {
     <main className="retail-vendor-app">
       <aside className="retail-vendor-sidebar">
         <div className="retail-vendor-brand"><span>sf</span><strong>Sure Food<small>Customer vendor store</small></strong></div>
-        <div className="retail-store-switch"><span>🥬</span><span><strong>{account.profile?.displayName}</strong><small>Customer-facing store</small></span><b>⌄</b></div>
+        <div className="retail-store-switch"><BusinessLogo user={account.user} logoUrl={businessLogoUrl} name={businessName} onChange={(url) => { setBusinessLogoUrl(url); setWorkspaceError(""); }} onError={setWorkspaceError} className="retail-store-logo" /><span><strong>{account.profile?.displayName}</strong><small>Customer-facing store</small></span><b>⌄</b></div>
         <span className="retail-nav-caption">YOUR STORE</span>
         <nav className="retail-vendor-nav" aria-label="Vendor store workspace">
           {views.map((view, index) => <button type="button" key={view} className={activeView === view ? "active" : ""} aria-current={activeView === view ? "page" : undefined} onClick={() => { setActiveView(view); setSavedNotice(""); }}>            <span>{["⌂", "▦", "▤", "▥", "♙", "◇", "₦", "▣", "▱"][index]}</span>{view}{view === "Supplier orders" && purchases.length > 0 && <i>{purchases.length}</i>}{view === "Customer orders" && <i>{itemCount}</i>}</button>)}
@@ -553,7 +560,7 @@ export default function VendorPage() {
       </aside>
 
       <section className="retail-vendor-main">
-        <header className="retail-vendor-topbar"><div className="retail-breadcrumb">Vendor workspace <span>›</span> {activeView}</div><div className="retail-top-actions"><span className="retail-store-open"><i />{canListProducts ? "Store open" : "Listings locked"}</span><button type="button" aria-label="Open order notifications" onClick={() => { setActiveView("Customer orders"); setOrderNotice(""); }}>♧{itemCount > 0 && <i>{itemCount > 9 ? "9+" : itemCount}</i>}</button><span className="retail-vendor-avatar">{(account.profile?.displayName ?? "Seller").slice(0, 2).toUpperCase()}</span><strong>{account.profile?.displayName}</strong></div></header>
+        <header className="retail-vendor-topbar"><div className="retail-breadcrumb">Vendor workspace <span>›</span> {activeView}</div><div className="retail-top-actions"><span className="retail-store-open"><i />{canListProducts ? "Store open" : "Listings locked"}</span><button type="button" aria-label="Open order notifications" onClick={() => { setActiveView("Customer orders"); setOrderNotice(""); }}>♧{itemCount > 0 && <i>{itemCount > 9 ? "9+" : itemCount}</i>}</button><span className="retail-vendor-avatar">{businessLogoUrl ? <Image src={businessLogoUrl} alt={`${businessName} logo`} width={31} height={31} unoptimized /> : (account.profile?.displayName ?? "Seller").slice(0, 2).toUpperCase()}</span><strong>{account.profile?.displayName}</strong></div></header>
         <div className="retail-vendor-content">
           <div className="retail-page-title"><div><span className="retail-title-kicker">DIRECT-TO-CUSTOMER STORE</span><h1>{activeView === "Overview" ? `Good morning, ${account.profile?.displayName}` : activeView}</h1><p>{activeView === "Overview" ? "Manage your shop, customer orders, and fresh daily listings." : viewDescription(activeView)}</p></div>{canListProducts
             ? (activeView === "Products" || activeView === "Overview") && <button className="retail-primary-button" type="button" onClick={startNewProduct}>＋ Add product</button>
@@ -565,7 +572,26 @@ export default function VendorPage() {
           {!canListProducts && <p className="workspace-api-error" role="status">{sellerNeedsApprovalFee(account.profile) ? <>Your business is approved. Pay the {money.format((account.profile?.approvalFeeMinor ?? 200_000) / 100)} approval fee to unlock listings. <Link href="/onboarding">Pay approval fee →</Link></> : <>Your seller dashboard is ready. Complete business verification to list products. <Link href="/onboarding">Continue verification →</Link></>}</p>}
           {activeView === "Overview" && (
             <>
-              <section className="retail-welcome-banner"><div><span>YOUR NEIGHBOURHOOD, YOUR STORE</span><h2>Fresh finds for<br />your community.</h2><p>Keep your best local picks in stock and ready for the next customer.</p>{canListProducts ? <button type="button" onClick={startNewProduct}>List a product <b>→</b></button> : <Link href="/onboarding">Complete verification →</Link>}</div><div className="retail-banner-art" aria-hidden="true">🥬🍊🥑</div></section>
+              <section className="vendor-banner" aria-label="Your store">
+                <span className="vendor-banner-curve is-a" aria-hidden="true" />
+                <span className="vendor-banner-curve is-b" aria-hidden="true" />
+                <span className="vendor-banner-ring" aria-hidden="true" />
+                <span className="vendor-banner-dot" aria-hidden="true" />
+                <div className="vendor-banner-copy">
+                  <span className="vendor-banner-eyebrow">Your neighbourhood, your store</span>
+                  <h2>Fresh finds, <em>for your community</em></h2>
+                  <p>Keep your best local picks in stock and ready for the next customer.</p>
+                  <div className="vendor-banner-actions">
+                    {canListProducts
+                      ? <button type="button" className="vendor-banner-cta" onClick={startNewProduct}>List a product →</button>
+                      : <Link className="vendor-banner-cta" href="/onboarding">Complete verification →</Link>}
+                    <span className="vendor-banner-ghost">Direct to customer</span>
+                  </div>
+                </div>
+                <div className="vendor-banner-art">
+                  <img src="/images/hero-produce.webp" alt="Fresh produce from your local store" />
+                </div>
+              </section>
               <section className="retail-metrics" aria-label="Store performance"><Metric label="Delivered sales" value={money.format(deliveredSales)} note="From delivered orders" icon="₦" /><Metric label="Customer orders" value={String(orders.length)} note={`${itemCount} open orders` } icon="▤" /><Metric label="Active products" value={String(products.length)} note={`${products.filter((product) => product.stock < 10).length} need restocking`} icon="▦" /><Metric label="Store rating" value="—" note="Ratings not available yet" icon="★" /></section>
               <div className="retail-dashboard-columns">
                 <section className="retail-panel"><div className="retail-panel-heading"><div><h2>Recent customer orders</h2><p>Quote delivery first, then prepare paid orders.</p></div><button type="button" onClick={() => setActiveView("Customer orders")}>View all →</button></div><OrderTable orders={orders.slice(0, 4)} onUpdate={updateOrder} onQuoteDelivery={quoteDelivery} compact /></section>
@@ -597,7 +623,7 @@ export default function VendorPage() {
           {activeView === "Customers" && <section className="retail-panel"><div className="retail-panel-heading"><div><h2>Your store customers</h2><p>Buyers who have orders in your store.</p></div></div><div className="retail-customers-grid">{[...customerCounts].map(([name, count]) => <article key={name}><span>{name.slice(0, 2).toUpperCase()}</span><div><strong>{name}</strong><small>{count} order{count === 1 ? "" : "s"}</small></div><i>Buyer</i></article>)}</div>{customerCounts.size === 0 && <p className="retail-empty">No customer orders yet.</p>}</section>}
 
           {activeView === "Buy from suppliers" && <section className="retail-panel">
-            <div className="retail-panel-heading"><div><h2>Wholesale supply</h2><p>Order stock directly from approved SureFood suppliers. Your supplier confirms the delivery fee, then you pay securely with Paystack.</p></div><button type="button" onClick={() => void loadSupplyWorkspace()}>Refresh</button></div>
+            <div className="retail-panel-heading"><div><h2>Wholesale supply</h2><p>Order stock directly from approved Sure Foodz suppliers. Your supplier confirms the delivery fee, then you pay securely with Paystack.</p></div><button type="button" onClick={() => void loadSupplyWorkspace()}>Refresh</button></div>
             {supplyError && <p className="workspace-api-error" role="alert">{supplyError}</p>}
             {supplyNotice && <p className="retail-saved-notice" role="status">{supplyNotice}</p>}
             {supplierListings.length === 0 ? <p className="retail-empty">No approved supplier listings are available right now.</p>
@@ -608,7 +634,7 @@ export default function VendorPage() {
             <div className="retail-panel-heading"><div><h2>Your supplier orders</h2><p>Track the stock you ordered from suppliers and pay once they confirm delivery.</p></div><button type="button" onClick={() => void loadSupplyWorkspace()}>Refresh</button></div>
             {supplyError && <p className="workspace-api-error" role="alert">{supplyError}</p>}
             <div className="retail-order-table-wrap"><table className="retail-order-table"><thead><tr><th>Order</th><th>Supplier</th><th>Items</th><th>Total</th><th>Status</th><th>Payment</th></tr></thead><tbody>
-              {purchases.map((order) => <tr key={order.id}><td><strong>{order.id.slice(0, 8)}</strong></td><td>{order.sellerName || "SureFood supplier"}</td><td>{order.items.map((item) => `${item.quantity} × ${item.name}`).join(", ")}</td><td>{money.format(order.totalMinor / 100)}</td><td><span className={`retail-order-status ${statusClass(order.status)}`}>{order.status}</span></td><td>{order.paymentStatus === "paid" ? <span className="retail-no-step">Paid</span> : order.status === "Awaiting buyer payment" ? <button type="button" className="retail-next-step" disabled={supplyBusy === order.id} onClick={() => void payForPurchase(order)}>{supplyBusy === order.id ? "Opening…" : `Pay ${money.format(order.totalMinor / 100)} →`}</button> : <span className="retail-no-step">Waiting for supplier</span>}</td></tr>)}
+              {purchases.map((order) => <tr key={order.id}><td><strong>{order.id.slice(0, 8)}</strong></td><td>{order.sellerName || "Sure Foodz supplier"}</td><td>{order.items.map((item) => `${item.quantity} × ${item.name}`).join(", ")}</td><td>{money.format(order.totalMinor / 100)}</td><td><span className={`retail-order-status ${statusClass(order.status)}`}>{order.status}</span></td><td>{order.paymentStatus === "paid" ? <span className="retail-no-step">Paid</span> : order.status === "Awaiting buyer payment" ? <button type="button" className="retail-next-step" disabled={supplyBusy === order.id} onClick={() => void payForPurchase(order)}>{supplyBusy === order.id ? "Opening…" : `Pay ${money.format(order.totalMinor / 100)} →`}</button> : <span className="retail-no-step">Waiting for supplier</span>}</td></tr>)}
             </tbody></table>{purchases.length === 0 && <p className="retail-empty">You have not ordered stock from a supplier yet.</p>}</div>
           </section>}
 
@@ -648,7 +674,7 @@ function viewDescription(view: VendorView) {
     Inventory: "Keep your customer-facing stock accurate and ready to sell.",
     Customers: "Get to know the people who choose your local store.",
     Promotions: "Create customer offers for products in your retail store.",
-    "Payout account": "Verify the business bank account SureFood will use for manual seller payouts.",
+    "Payout account": "Verify the business bank account Sure Foodz will use for manual seller payouts.",
     "Buy from suppliers": "Order wholesale stock from approved suppliers and keep your shelves full.",
     "Supplier orders": "Track and pay for the stock you ordered from suppliers.",
   };
@@ -678,7 +704,7 @@ function SupplierPurchaseRow({ product, busy, onOrder }: {
   const [quantity, setQuantity] = useState("1");
   return <div className="retail-product-row">
     <span className="retail-row-emoji">{product.imageUrl ? <Image src={product.imageUrl} alt={product.name} width={46} height={46} quality={90} /> : "📦"}</span>
-    <div><strong>{product.name}</strong><small>{[product.sellerName || "SureFood supplier", product.category, `${product.stock} available`].filter(Boolean).join(" · ")}</small></div>
+    <div><strong>{product.name}</strong><small>{[product.sellerName || "Sure Foodz supplier", product.category, `${product.stock} available`].filter(Boolean).join(" · ")}</small></div>
     <span className="retail-row-price">{money.format(product.priceMinor / 100)}</span>
     <input className="retail-quantity-input" type="number" min="1" max={product.stock} value={quantity} aria-label={`Quantity of ${product.name}`} onChange={(event) => setQuantity(event.target.value)} />
     <button type="button" disabled={busy} onClick={() => onOrder(product, Number(quantity))}>{busy ? "Ordering…" : "Order stock"}</button>

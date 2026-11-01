@@ -49,7 +49,7 @@ async function reverseGeocode(latitude: number, longitude: number) {
   const response = await fetch(url, {
     headers: {
       // Nominatim asks every client to identify itself.
-      "user-agent": "SureFood/1.0 (https://surefoodz.com)",
+      "user-agent": "Sure Foodz/1.0 (https://surefoodz.com)",
       accept: "application/json",
     },
     cache: "no-store",

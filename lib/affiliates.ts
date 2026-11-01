@@ -1,8 +1,8 @@
-// SureFood affiliate programme.
+// Sure Foodz affiliate programme.
 //
 // Anyone can refer buyers and earn a share of the goods value on the orders that
 // come from their link. Nothing is paid automatically: the affiliate requests a
-// payout, and the SureFood team pays it by hand (bank transfer) and marks it paid.
+// payout, and the Sure Foodz team pays it by hand (bank transfer) and marks it paid.
 // That keeps us honest about the money while there is no automated payout rail.
 
 export const AFFILIATE_COMMISSION_RATE = 0.05;

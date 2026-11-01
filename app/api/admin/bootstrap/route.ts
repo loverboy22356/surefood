@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     return jsonError("The admin setup key is incorrect.", 403);
   }
   if (!isEmail(email) || email !== adminEmail) {
-    return jsonError("Use the configured SureFood admin email address.", 403);
+    return jsonError("Use the configured Sure Foodz admin email address.", 403);
   }
   if (password.length < 8 || password.length > 128) {
     return jsonError("Use a password between 8 and 128 characters.", 400);

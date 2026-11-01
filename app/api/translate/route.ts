@@ -67,7 +67,7 @@ async function translateWithPublicEndpoint(texts: string[], target: string) {
   url.searchParams.set("dt", "t");
   url.searchParams.set("q", joined);
   const response = await fetch(url, {
-    headers: { "user-agent": "Mozilla/5.0 (compatible; SureFoodLocale/1.0)" },
+    headers: { "user-agent": "Mozilla/5.0 (compatible; Sure FoodzLocale/1.0)" },
     cache: "no-store",
     signal: AbortSignal.timeout(20_000),
   });

@@ -67,7 +67,7 @@ export function LocaleSwitcher() {
           <p className={ratesError ? "locale-status error" : "locale-status"}>
             {ratesError ? ratesError : ratesUpdatedAt ? `Live rates updated ${ratesUpdatedAt}` : "Loading live exchange rates…"}
           </p>
-          <p className="locale-note">Prices are converted estimates. SureFood orders are always charged in NGN.</p>
+          <p className="locale-note">Prices are converted estimates. Sure Foodz orders are always charged in NGN.</p>
           <button type="button" className="locale-reset" onClick={resetToDetected}>Follow my detected location</button>
         </div>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import {
@@ -56,12 +56,33 @@ export default function SignupForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
-  const [code, setCode] = useState("");
   const [step, setStep] = useState<"details" | "code">("details");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [googleEmail, setGoogleEmail] = useState("");
+  const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const boxes = useRef<Array<HTMLInputElement | null>>([]);
+  const code = digits.join("");
+
+  function typeDigit(index: number, value: string) {
+    const clean = value.replace(/\D/g, "");
+    if (!clean) {
+      setDigits((current) => current.map((digit, at) => (at === index ? "" : digit)));
+      return;
+    }
+    if (clean.length > 1) {
+      setDigits((current) => {
+        const next = [...current];
+        clean.slice(0, 6 - index).split("").forEach((digit, offset) => { next[index + offset] = digit; });
+        return next;
+      });
+      boxes.current[Math.min(5, index + clean.length)]?.focus();
+      return;
+    }
+    setDigits((current) => current.map((digit, at) => (at === index ? clean : digit)));
+    if (index < 5) boxes.current[index + 1]?.focus();
+  }
 
   useEffect(() => {
     const requestedRole = new URLSearchParams(window.location.search).get("role");
@@ -229,29 +250,134 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="auth-form-wrap signup-form-wrap">
-      <div className="auth-heading"><span className="auth-overline">LET&apos;S GET FRESH</span><h2>Join the table.</h2><p>Create an account to shop, sell, or supply with SureFood.</p></div>
+    <div>
       {step === "details" ? (
-        <form className="auth-form" onSubmit={requestCode}>
-          <fieldset className="role-picker"><legend>How will you use SureFood?</legend><div>{roleOptions.map((option) => <button type="button" key={option.value} className={role === option.value ? "role-choice selected" : "role-choice"} aria-pressed={role === option.value} onClick={() => setRole(option.value)}><span>{option.icon}</span><strong>{option.title}</strong><small>{option.description}</small></button>)}</div></fieldset>
-          <div className="name-fields"><div><label htmlFor="first-name">Your name</label><input id="first-name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} type="text" autoComplete="name" placeholder="Full name" required /></div><div><label htmlFor="signup-phone">Phone number</label><input id="signup-phone" value={phone} onChange={(event) => setPhone(event.target.value)} type="tel" autoComplete="tel" placeholder="+234 ..." required /></div></div>
-          <label htmlFor="signup-email">Email address</label><input id="signup-email" value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="you@example.com" required />
-          <label htmlFor="signup-location">Your location</label><input id="signup-location" value={location} onChange={(event) => setLocation(event.target.value)} type="text" autoComplete="address-level2" placeholder="City, neighbourhood" required />
-          <label className="remember-check"><input type="checkbox" required /> <span>I agree to the <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy</a>.</span></label>
-          <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Sending code..." : "Continue with email"} <span>→</span></button>
+        <form onSubmit={requestCode} noValidate>
+          <div className="sf-roles" role="group" aria-label="How will you use Sure Foodz?">
+            {roleOptions.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                className={role === option.value ? "sf-role is-on" : "sf-role"}
+                aria-pressed={role === option.value}
+                onClick={() => setRole(option.value)}
+              >
+                <span aria-hidden="true">{option.icon}</span>
+                <b>{option.title}</b>
+                <small>{option.description}</small>
+              </button>
+            ))}
+          </div>
+
+          <div className="sf-field">
+            <label htmlFor="signup-name">Full name</label>
+            <input
+              id="signup-name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              type="text"
+              autoComplete="name"
+              placeholder="Enter your full name"
+              required
+            />
+          </div>
+
+          <div className="sf-field">
+            <label htmlFor="signup-email">Email</label>
+            <input
+              id="signup-email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              autoComplete="email"
+              placeholder="Enter your email address"
+              required
+            />
+          </div>
+
+          <div className="sf-field">
+            <label htmlFor="signup-phone">Phone number</label>
+            <input
+              id="signup-phone"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              type="tel"
+              autoComplete="tel"
+              placeholder="+234 ..."
+              required
+            />
+          </div>
+
+          <div className="sf-field">
+            <label htmlFor="signup-location">Your location</label>
+            <input
+              id="signup-location"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              type="text"
+              autoComplete="address-level2"
+              placeholder="City, neighbourhood"
+              required
+            />
+          </div>
+
+          <label className="sf-check" style={{ marginBottom: 16 }}>
+            <input type="checkbox" required />
+            <span>I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.</span>
+          </label>
+
+          <button className="sf-btn is-wide" type="submit" disabled={busy}>
+            {busy ? "Creating your account…" : "Sign Up"}
+          </button>
+          {error && <p className="sf-auth-error" role="alert" style={{ marginTop: 12 }}>{error}</p>}
         </form>
       ) : (
-        <form className="auth-form" onSubmit={verifyCode}>
-          <p className="auth-flow-message">{message} <strong>{email}</strong></p>
-          <label htmlFor="signup-code">Six-digit email code</label><input id="signup-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" required />
-          <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Verifying..." : "Verify and create account"} <span>→</span></button>
-          <button className="auth-back-link" type="button" onClick={() => { setStep("details"); setError(""); }}>Use a different email</button>
+        <form onSubmit={verifyCode} noValidate>
+          <div className="sf-otp-head">
+            <h2>We just sent an SMS</h2>
+            <p>Enter the security code we sent to <b>{email}</b></p>
+          </div>
+          <div className="sf-otp-row" role="group" aria-label="Six-digit verification code">
+            {digits.map((digit, index) => (
+              <input
+                key={index}
+                ref={(node) => { boxes.current[index] = node; }}
+                value={digit}
+                onChange={(event) => typeDigit(index, event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Backspace" && !digit && index > 0) boxes.current[index - 1]?.focus();
+                }}
+                inputMode="numeric"
+                autoComplete={index === 0 ? "one-time-code" : "off"}
+                aria-label={`Digit ${index + 1}`}
+                maxLength={6}
+                autoFocus={index === 0}
+              />
+            ))}
+          </div>
+          <div className="sf-otp-meta">
+            <span>
+              Didn&apos;t get the code?{" "}
+              <button type="button" onClick={() => { setStep("details"); setError(""); }}>Resend it</button>
+            </span>
+            <span className="sf-otp-timer" aria-hidden="true">60s</span>
+          </div>
+          <button className="sf-btn is-wide" type="submit" disabled={busy}>
+            {busy ? "Verifying…" : "Submit"}
+          </button>
+          {error && <p className="sf-auth-error" role="alert">{error}</p>}
+          <p className="sf-auth-note" style={{ marginTop: 12 }}>{message}</p>
         </form>
       )}
-      {error && <p className="auth-error" role="alert">{error}</p>}
-      <div className="auth-divider"><span />or<span /></div>
-      <button className="google-button" type="button" disabled={busy} onClick={signupWithGoogle}><span className="google-mark">G</span>{googleEmail ? `Continue with ${googleEmail}` : "Sign up with Google"}</button>
-      <p className="auth-switch">Already have an account? <a href="/login">Sign in with a code</a></p>
+
+      <div className="sf-or"><span>Or</span></div>
+
+      <button className="sf-google" type="button" disabled={busy} onClick={signupWithGoogle}>
+        <span className="sf-google-mark" aria-hidden="true">G</span>
+        {googleEmail ? `Continue with ${googleEmail}` : "Sign Up with Google"}
+      </button>
+
+      <p className="sf-auth-switch">Already a member? <a href="/login">Log in</a></p>
     </div>
   );
 }

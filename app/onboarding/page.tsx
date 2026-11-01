@@ -214,7 +214,7 @@ export default function BusinessOnboardingPage() {
       console.error("Could not upload a verification document.", reason);
       setDocumentUploadError(
         reason instanceof TypeError
-          ? "Could not reach SureFood's upload service. Check your connection and try again."
+          ? "Could not reach Sure Foodz's upload service. Check your connection and try again."
           : reason instanceof Error
             ? reason.message
             : "Document upload failed.",
@@ -332,17 +332,17 @@ export default function BusinessOnboardingPage() {
 
   return (
     <main className="onboarding-page">
-      <header className="onboarding-header"><Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>food</span></span></Link><Link href="/">Back to shop →</Link></header>
+      <header className="onboarding-header"><Link href="/" className="brand"><span className="brand-mark">s</span><span>sure<span>foodz</span></span></Link><Link href="/">Back to shop →</Link></header>
       <section className="onboarding-card">
         <span className="auth-overline">VENDOR & SUPPLIER SETUP</span>
         <h1>Verify your business</h1>
-        <p className="onboarding-intro">{needsRegistration ? "Add your business details and upload your registration certificate, proof of address, and NIN document." : "Add your business details and upload your proof of address and NIN document. Vendors do not need a CAC or business registration document."} Your documents are stored privately and reviewed by SureFood staff.</p>
+        <p className="onboarding-intro">{needsRegistration ? "Add your business details and upload your registration certificate, proof of address, and NIN document." : "Add your business details and upload your proof of address and NIN document. Vendors do not need a CAC or business registration document."} Your documents are stored privately and reviewed by Sure Foodz staff.</p>
         {!authReady ? <p>Checking your sign-in...</p> : !user ? <p className="onboarding-state">Sign in with your vendor or supplier email to continue. <Link href="/login">Sign in →</Link></p> : (
           <>
             <div className={`verification-status status-${status.replaceAll("_", "-")}`} role="status"><strong>Verification status</strong><span>{status.replaceAll("_", " ")}</span></div>
             {status === "approved" ? <div className="onboarding-state">
               <p>Your business account is approved.</p>
-              {approvalFeeStatus === "paid" ? <p>Your approval fee is paid. You can now list products and manage your SureFood store.</p>
+              {approvalFeeStatus === "paid" ? <p>Your approval fee is paid. You can now list products and manage your Sure Foodz store.</p>
                 : <div className="onboarding-fee-card">
                   <strong>{role === "supplier" ? "Supplier" : "Vendor"} approval fee: {money.format((approvalFeeMinor || (role === "supplier" ? 5_000_00 : 2_000_00)) / 100)}</strong>
                   <p>The one-time, non-refundable approval fee unlocks product listings for your business. Pay it securely with Paystack to finish verification.</p>

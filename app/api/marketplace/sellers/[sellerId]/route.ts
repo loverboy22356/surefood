@@ -46,7 +46,7 @@ export async function GET(_request: Request, context: { params: Promise<{ seller
       })
       .map((product) => ({
         id: product.id,
-        name: String(product.name ?? "SureFood product"),
+        name: String(product.name ?? "Sure Foodz product"),
         description: String(product.description ?? ""),
         category: String(product.category ?? ""),
         priceMinor: Number(product.priceMinor ?? 0),
@@ -65,8 +65,9 @@ export async function GET(_request: Request, context: { params: Promise<{ seller
       seller: {
         id: profileSnapshot.id,
         role,
-        name: String(business.businessName || profile.displayName || "SureFood business"),
+        name: String(business.businessName || profile.displayName || "Sure Foodz business"),
         displayName: String(profile.displayName ?? ""),
+        logoUrl: typeof profile.businessLogoUrl === "string" ? profile.businessLogoUrl : "",
         city: String(business.city ?? ""),
         region: String(business.region ?? ""),
         location: [business.city, business.region].filter((part) => typeof part === "string" && part.trim()).join(", "),
@@ -77,7 +78,7 @@ export async function GET(_request: Request, context: { params: Promise<{ seller
       products,
     });
   } catch (error) {
-    console.error("Could not load a SureFood seller storefront.", error);
+    console.error("Could not load a Sure Foodz seller storefront.", error);
     return jsonError("This store is temporarily unavailable.", 500);
   }
 }

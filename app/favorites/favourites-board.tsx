@@ -4,39 +4,29 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   apiProductToListing,
-  ProductDetailsDialog,
+  formatMarketMoney,
+  productImageUrl,
   readFavourites,
   writeFavourites,
   type ApiProduct,
   type MarketplaceProduct,
 } from "@/app/components/marketplace-product";
 import { addItemToBasket, cartItemCount } from "@/app/components/cart-client";
-import {
-  BrowseHeader,
-  BrowseHero,
-  BrowseProductCard,
-  BrowseResultBar,
-  FilterSidebar,
-  priceBandMatches,
-  productLocationLabel,
-  type PriceBandId,
-} from "@/app/components/browse-ui";
+import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
+
+function stockState(product: MarketplaceProduct) {
+  if (!product.liveListing) return { label: "In stock", tone: "ok" as const };
+  return (product.stock ?? 0) > 0
+    ? { label: "In stock", tone: "ok" as const }
+    : { label: "Out of stock", tone: "off" as const };
+}
 
 export function FavouritesBoard() {
   const [favourites, setFavourites] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<MarketplaceProduct | null>(null);
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"ok" | "warn">("ok");
   const [basketCount, setBasketCount] = useState(0);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
-  const [seller, setSeller] = useState("");
-  const [location, setLocation] = useState("");
-  const [priceBand, setPriceBand] = useState<PriceBandId>("any");
-  const [sort, setSort] = useState("relevance");
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     setBasketCount(cartItemCount());
@@ -53,24 +43,24 @@ export function FavouritesBoard() {
         const result = await response.json();
         if (!response.ok || !active) return;
         const live = new Map<string, MarketplaceProduct>(
-          (Array.isArray(result.products) ? result.products as ApiProduct[] : [])
+          (Array.isArray(result.products) ? (result.products as ApiProduct[]) : [])
             .map(apiProductToListing)
             .map((product) => [product.id, product]),
         );
-        const refreshed = stored.flatMap((item) => {
-          const current = live.get(item.id);
-          return current ? [current] : [];
-        });
+        // Saved items stay listed even if the seller pulled the listing, so the
+        // shopper can see what happened instead of it silently disappearing.
+        const refreshed = stored.map((item) => live.get(item.id) ?? item);
         if (!active) return;
         setFavourites(refreshed);
-        if (refreshed.length !== stored.length) writeFavourites(refreshed);
       } catch (reason) {
-        console.error("Could not refresh your favourites.", reason);
+        console.error("Could not refresh your wishlist.", reason);
       } finally {
         if (active) setLoading(false);
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -79,206 +69,156 @@ export function FavouritesBoard() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const favouriteIds = useMemo(() => new Set(favourites.map((item) => item.id)), [favourites]);
-
-  const term = search.trim().toLowerCase();
-  const searched = useMemo(() => favourites.filter((product) =>
-    !term || `${product.name} ${product.detail} ${product.category} ${product.sellerName ?? ""}`.toLowerCase().includes(term),
-  ), [favourites, term]);
-
-  const locationOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const product of searched) {
-      const label = productLocationLabel(product);
-      if (label) counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-    return [...counts.entries()].map(([label, count]) => ({ value: label, label, count })).sort((a, b) => b.count - a.count);
-  }, [searched]);
-
-  const scoped = useMemo(
-    () => searched.filter((product) => !location || productLocationLabel(product) === location),
-    [searched, location],
+  const inStockCount = useMemo(
+    () => favourites.filter((product) => stockState(product).tone === "ok").length,
+    [favourites],
   );
 
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const product of scoped) if (product.category) counts.set(product.category, (counts.get(product.category) ?? 0) + 1);
-    return [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  }, [scoped]);
-
-  const sellerCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const product of scoped) if (product.sellerName) counts.set(product.sellerName, (counts.get(product.sellerName) ?? 0) + 1);
-    return [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  }, [scoped]);
-
-  const priceCounts = useMemo(() => {
-    const counts: Record<PriceBandId, number> = { any: scoped.length, low: 0, mid: 0, high: 0, premium: 0 };
-    for (const product of scoped) {
-      if (product.price < 500_000) counts.low += 1;
-      else if (product.price < 1_000_000) counts.mid += 1;
-      else if (product.price < 2_000_000) counts.high += 1;
-      else counts.premium += 1;
-    }
-    return counts;
-  }, [scoped]);
-
-  const matches = useMemo(() => {
-    const filtered = scoped.filter((product) =>
-      (!category || product.category === category) &&
-      (!seller || product.sellerName === seller) &&
-      priceBandMatches(product.price, priceBand),
-    );
-    if (sort === "price-asc") return [...filtered].sort((a, b) => a.price - b.price);
-    if (sort === "price-desc") return [...filtered].sort((a, b) => b.price - a.price);
-    if (sort === "name") return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-    return filtered;
-  }, [scoped, category, seller, priceBand, sort]);
-
-  const filtersActive = Boolean(category || seller || location || priceBand !== "any");
-
-  function toggleFavourite(product: MarketplaceProduct) {
-    const exists = favourites.some((item) => item.id === product.id);
-    const next = exists ? favourites.filter((item) => item.id !== product.id) : [...favourites, product];
-    writeFavourites(next);
-    setFavourites(next);
-    setNoticeTone("ok");
-    setNotice(exists ? `${product.name} removed from your favourites.` : `${product.name} saved to your favourites.`);
-  }
-
-  function addToBasket(product: MarketplaceProduct, quantity = 1) {
-    const result = addItemToBasket(product, quantity);
+  function addToBasket(product: MarketplaceProduct) {
+    const result = addItemToBasket(product, 1);
     setNoticeTone(result.ok ? "ok" : "warn");
     setNotice(result.message);
     setBasketCount(cartItemCount());
   }
 
-  function clearFilters() {
-    setCategory("");
-    setSeller("");
-    setLocation("");
-    setPriceBand("any");
-    setSort("relevance");
-    setSearch("");
-  }
-
-  function clearAll() {
-    writeFavourites([]);
-    setFavourites([]);
-    clearFilters();
+  function remove(product: MarketplaceProduct) {
+    const next = favourites.filter((item) => item.id !== product.id);
+    writeFavourites(next);
+    setFavourites(next);
     setNoticeTone("ok");
-    setNotice("Your favourites list is now empty.");
+    setNotice(`${product.name} removed from your wishlist.`);
   }
 
   return (
-    <main className="browse-page" data-local-currency>
-      <BrowseHeader
-        query={search}
-        onQueryChange={setSearch}
-        locations={locationOptions}
-        location={location}
-        onLocationChange={setLocation}
-        savedCount={favourites.length}
-        basketCount={basketCount}
-      />
+    <div className="sf-page">
+      <ShopHeader />
+      <main className="sf-shell" style={{ flex: "1 1 auto", paddingBottom: 56 }}>
+        <nav className="sf-flow-steps" aria-label="Breadcrumb">
+          <Link href="/">Home</Link><i>/</i>
+          <span className="is-on">Wishlist</span>
+        </nav>
 
-      <div className="browse-shell">
-        <BrowseHero
-          kicker="Saved items"
-          title="Your favourites"
-          description="Quick access to the products you love. Shop them again anytime."
-          badge={favourites.length ? `${favourites.length} saved item${favourites.length === 1 ? "" : "s"}` : "Nothing saved yet"}
-        />
+        <div className="wl-head">
+          <Link href="/" className="wl-back" aria-label="Back to the shop">←</Link>
+          <button
+            type="button"
+            className="wl-share"
+            aria-label="Share your wishlist"
+            onClick={() => {
+              const url = window.location.href;
+              if (navigator.share) void navigator.share({ title: "My Sure Foodz wishlist", url }).catch(() => {});
+              else void navigator.clipboard?.writeText(url).then(
+                () => setNotice("Wishlist link copied to your clipboard."),
+                () => setNotice("Copy the address bar to share your wishlist."),
+              );
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="18" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+              <circle cx="6" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+              <circle cx="18" cy="19" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+              <path d="m8.5 10.8 7-4.2M8.5 13.2l7 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
 
-        <div className="browse-layout">
-          <FilterSidebar
-            open={filtersOpen}
-            onToggle={() => setFiltersOpen((current) => !current)}
-            categoryCounts={categoryCounts}
-            category={category}
-            onCategory={setCategory}
-            priceCounts={priceCounts}
-            priceBand={priceBand}
-            onPriceBand={setPriceBand}
-            sellers={sellerCounts}
-            seller={seller}
-            onSeller={setSeller}
-            onClear={clearFilters}
-            clearDisabled={!filtersActive && !search}
-          />
+        <h1 className="wl-title">Wishlist</h1>
+        <p className="wl-lede">
+          {loading
+            ? "Loading your saved products…"
+            : favourites.length
+              ? `${favourites.length} saved ${favourites.length === 1 ? "product" : "products"} · ${inStockCount} ready to ship. Tap the trash icon to take one off the list.`
+              : "Everything you save for later lands here, ready to add to your cart."}
+        </p>
 
-          <section className="browse-results" aria-label="Saved products">
-            {favourites.length > 0 && (
-              <BrowseResultBar
-                count={matches.length}
-                noun={matches.length === 1 ? "saved item" : "saved items"}
-                sort={sort}
-                onSort={setSort}
-                view={view}
-                onView={setView}
-                context={favourites.length !== matches.length ? `of ${favourites.length} saved` : ""}
-              />
-            )}
+        {favourites.length > 0 && (
+          <div className="wl-table" role="table" aria-label="Saved products">
+            <div className="wl-row wl-row-head" role="row">
+              <span role="columnheader">Products</span>
+              <span role="columnheader">Price</span>
+              <span role="columnheader">Stock status</span>
+              <span role="columnheader">Actions</span>
+            </div>
 
-            {loading && <div className="browse-grid grid" aria-hidden="true">{[0, 1].map((index) => <div className="browse-card skeleton" key={index} />)}</div>}
-
-            {!loading && (
-              <div className={matches.length === 0 ? "favourites-layout empty" : matches.length < 3 ? "favourites-layout" : "favourites-layout wide"}>
-                <div className={`browse-grid ${view}`}>
-                  {matches.map((product) => (
-                    <BrowseProductCard
-                      key={product.id}
-                      product={product}
-                      view={view}
-                      saved={favouriteIds.has(product.id)}
-                      onAdd={addToBasket}
-                      onToggleSave={toggleFavourite}
-                      onDetails={setSelected}
-                    />
-                  ))}
-                </div>
-                <aside className="favourites-empty-panel">
-                  <div className="favourites-empty-art" aria-hidden="true">
-                    <span>🧺</span>
-                    <i>♡</i>
+            {favourites.map((product) => {
+              const state = stockState(product);
+              return (
+                <div className="wl-row" role="row" key={product.id}>
+                  <div className="wl-product" role="cell">
+                    <Link href={`/product/${product.id}`} className="wl-thumb">
+                      {product.imageUrl ? (
+                        <img src={productImageUrl(product.imageUrl, 160)} alt={product.name} loading="lazy" />
+                      ) : (
+                        <span aria-hidden="true">{product.emoji}</span>
+                      )}
+                    </Link>
+                    <div className="wl-copy">
+                      <Link href={`/product/${product.id}`} className="wl-name">{product.name}</Link>
+                      <small>
+                        {product.category}
+                        {product.sellerName ? ` · ${product.sellerName}` : ""}
+                      </small>
+                    </div>
                   </div>
-                  <h2>{matches.length ? "No more saved items" : favourites.length ? "Nothing matches those filters" : "Nothing saved yet"}</h2>
-                  <p>{matches.length
-                    ? "Start exploring and save your favourite products for quick access later."
-                    : favourites.length
-                      ? "Try clearing the filters to see everything you have saved."
-                      : "Browse the marketplace and tap the heart on products you want to come back to."}</p>
-                  {matches.length
-                    ? <Link href="/search" className="favourites-empty-cta">🧺 Explore Marketplace</Link>
-                    : favourites.length
-                      ? <button type="button" className="favourites-empty-cta" onClick={clearFilters}>Clear filters</button>
-                      : <Link href="/" className="favourites-empty-cta">🧺 Explore Marketplace</Link>}
-                  {favourites.length > 0 && <button type="button" className="favourites-clear" onClick={clearAll}>Clear all favourites</button>}
-                </aside>
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
 
-      {notice && (
-        <div className={`browse-toast ${noticeTone}`} role="status">
-          <span>{notice}</span>
-          {noticeTone === "ok" && <Link href="/">Go to basket →</Link>}
-          <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}>×</button>
-        </div>
-      )}
+                  <div className="wl-price" role="cell">
+                    {product.oldPrice ? <s>{formatMarketMoney(product.oldPrice, product.currency)}</s> : null}
+                    <b>{formatMarketMoney(product.price, product.currency)}</b>
+                  </div>
 
-      {selected && (
-        <ProductDetailsDialog
-          key={selected.id}
-          product={selected}
-          onClose={() => setSelected(null)}
-          onAdd={addToBasket}
-          saved={favouriteIds.has(selected.id)}
-          onToggleSave={toggleFavourite}
-        />
-      )}
-    </main>
+                  <div className="wl-stock" role="cell">
+                    <span className={`wl-stock-pill is-${state.tone}`}>{state.label}</span>
+                  </div>
+
+                  <div className="wl-actions" role="cell">
+                    <button
+                      type="button"
+                      className="wl-add"
+                      onClick={() => addToBasket(product)}
+                      disabled={state.tone === "off"}
+                    >
+                      Add to cart
+                    </button>
+                    <button
+                      type="button"
+                      className="wl-remove"
+                      aria-label={`Remove ${product.name} from your wishlist`}
+                      onClick={() => remove(product)}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 7h16M9.5 7V5.2c0-.7.5-1.2 1.2-1.2h2.6c.7 0 1.2.5 1.2 1.2V7M6.5 7l.9 12.1c.1.9.8 1.6 1.7 1.6h5.8c.9 0 1.6-.7 1.7-1.6L17.5 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!loading && !favourites.length && (
+          <div className="wl-empty">
+            <div className="wl-empty-art" aria-hidden="true">
+              <span>♡</span>
+            </div>
+            <h2>Nothing saved yet</h2>
+            <p>Tap the heart on any product and it will wait for you here.</p>
+            <div className="wl-empty-cta">
+              <Link href="/shop" className="wl-add">Start shopping</Link>
+              <Link href="/search" className="wl-ghost">Browse the marketplace</Link>
+            </div>
+          </div>
+        )}
+
+        {notice && (
+          <div className={`browse-toast ${noticeTone}`} role="status">
+            <span>{notice}</span>
+            {noticeTone === "ok" && basketCount > 0 && <Link href="/cart">Go to cart →</Link>}
+            <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}>×</button>
+          </div>
+        )}
+      </main>
+      <ShopFooter />
+    </div>
   );
 }

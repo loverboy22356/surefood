@@ -20,12 +20,20 @@ const OUTPUT = path.join(ROOT, "app/theme-dark.css");
 const SOURCES = [
   "app/globals.css",
   "app/home.css",
+  "app/home-sections.css",
+  "app/shop.css",
   "app/browse.css",
   "app/requests.css",
+  "app/services.css",
+  "app/store.css",
+  "app/product/product.css",
+  "app/wishlist.css",
+  "app/help.css",
   "app/account/account.css",
   "app/affiliate/affiliate.css",
   "app/vendor/vendor.css",
   "app/components/human-check.css",
+  "app/info.css",
   "app/motion.css",
 ];
 
@@ -136,10 +144,14 @@ function hslToHex(h, s, l) {
   return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
-const CARD = "#1c1230";
-const PAGE = "#171027";
-const INK = "#ece6f8";
-const MUTED = "#b3a4c8";
+/* Dark surfaces are neutral black: a pure black page, near-black raised cards and
+   neutral grey ink, so no violet cast bleeds into the dark theme. */
+const CARD = "#0d0d0d";
+const PAGE = "#000000";
+const INK = "#f2f2f2";
+const MUTED = "#b3b3b3";
+/** Light panels keep a whisper of their hue instead of a saturated violet wash. */
+const SURFACE_SATURATION = 0.1;
 
 /** How colourful a colour looks, independent of how light it is (0–1). */
 function chroma({ r, g, b }) {
@@ -157,14 +169,14 @@ function mapSurface(color) {
     // Faint white washes on the purple header are already correct in dark mode.
     if (lum < 0.55 || a < 0.5) return null;
     // Frosted panels become translucent panels.
-    return `rgba(28, 18, 48, ${a.toFixed(2)})`;
+    return `rgba(10, 10, 10, ${a.toFixed(2)})`;
   }
 
-  const tint = hslToHex(h, Math.min(0.5, Math.max(0.18, spread * 1.5)), lum >= 0.95 ? 0.16 : 0.19);
+  const tint = hslToHex(h, Math.min(SURFACE_SATURATION, spread * 1.5), lum >= 0.95 ? 0.16 : 0.19);
 
   if (lum >= 0.95) return spread < 0.08 ? CARD : tint;
   if (lum >= 0.86) return spread < 0.08 ? PAGE : tint;
-  if (lum >= 0.55) return spread < 0.08 ? PAGE : hslToHex(h, Math.min(0.5, spread * 1.5), 0.23);
+  if (lum >= 0.55) return spread < 0.08 ? PAGE : hslToHex(h, Math.min(SURFACE_SATURATION, spread * 1.5), 0.23);
   return null;
 }
 
@@ -178,7 +190,7 @@ function mapInk(color) {
 
   if (a < 0.985) {
     if (lum > 0.5) return null;
-    return `rgba(236, 230, 248, ${Math.min(1, Math.max(0.35, a)).toFixed(2)})`;
+    return `rgba(242, 242, 242, ${Math.min(1, Math.max(0.35, a)).toFixed(2)})`;
   }
   if (lum > 0.5) return null;
   if (spread < 0.2) return lum < 0.16 ? INK : MUTED;

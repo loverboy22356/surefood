@@ -32,13 +32,20 @@ export async function GET(request: Request) {
       const profile = document.data();
       const business = profile.business ?? {};
       const location = [business.city, business.region].filter((part) => typeof part === "string" && part).join(", ");
+      const businessName = typeof business.businessName === "string" && business.businessName
+        ? business.businessName
+        : typeof profile.displayName === "string" ? profile.displayName : "Sure Foodz seller";
       return {
         id: document.id,
         role,
-        name: typeof business.businessName === "string" && business.businessName
-          ? business.businessName
-          : typeof profile.displayName === "string" ? profile.displayName : "SureFood seller",
-        detail: location || "SureFood verified business",
+        name: businessName,
+        businessName,
+        displayName: typeof profile.displayName === "string" ? profile.displayName : "",
+        // The logo the seller uploaded in their workspace, shown on the buyer side.
+        logoUrl: typeof profile.businessLogoUrl === "string" ? profile.businessLogoUrl : "",
+        detail: location || "Sure Foodz verified business",
+        city: typeof business.city === "string" ? business.city : "",
+        region: typeof business.region === "string" ? business.region : "",
         emoji: detail.emoji,
         badge: detail.label,
         route: `/store/${document.id}`,
@@ -46,7 +53,7 @@ export async function GET(request: Request) {
     });
     return Response.json({ sellers });
   } catch (error) {
-    console.error("Could not load approved SureFood sellers.", error);
+    console.error("Could not load approved Sure Foodz sellers.", error);
     return jsonError("Approved sellers are temporarily unavailable.", 500);
   }
 }

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   GoogleAuthProvider,
@@ -16,12 +15,21 @@ import { HumanCheck } from "@/app/components/human-check";
 export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [step, setStep] = useState<"email" | "code">("email");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [human, setHuman] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const boxes = useRef<Array<HTMLInputElement | null>>([]);
+  const code = digits.join("");
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setInterval(() => setCooldown((seconds) => Math.max(0, seconds - 1)), 1_000);
+    return () => window.clearInterval(timer);
+  }, [cooldown > 0]);
 
   useEffect(() => {
     if (!firebaseConfigured()) return;
@@ -35,11 +43,11 @@ export default function LoginForm() {
         signal: AbortSignal.timeout(15_000),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "No SureFood account was found for this Google account. Sign up first.");
+      if (!response.ok) throw new Error(result.error || "No Sure Foodz account was found for this Google account. Sign up first.");
       goToRole(result.profile.role);
     }).catch((reason: unknown) => {
       console.error("Google sign-in could not be completed.", reason);
-      setError(reason instanceof Error ? reason.message : "Google sign-in could not be completed.");
+      setError(googleSignInError(reason));
     }).finally(() => setBusy(false));
   }, []);
 
@@ -55,9 +63,12 @@ export default function LoginForm() {
     const code = reason && typeof reason === "object" && "code" in reason
       ? String(reason.code)
       : "";
-    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return "Google sign-in was cancelled. Select Continue with Google to try again.";
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return "Google sign-in was cancelled. Select Login with Google to try again.";
     if (code === "auth/popup-blocked") return "Your browser blocked the Google sign-in window. Allow popups for this site and try again, or open the site in Chrome.";
-    if (code === "auth/unauthorized-domain") return "This domain is not authorized for Google sign-in yet. Add it under Firebase Authentication → Settings → Authorized domains.";
+    if (code === "auth/unauthorized-domain") {
+      const host = typeof window === "undefined" ? "this address" : window.location.host;
+      return `Google blocks sign-in from ${host}. Open the site at http://localhost:3000 instead, or add ${host} under Firebase Authentication → Settings → Authorized domains.`;
+    }
     if (code === "auth/operation-not-allowed") return "Google sign-in is not enabled for this Firebase project.";
     if (code === "auth/network-request-failed") return "Google sign-in could not reach Firebase. Check your connection and try again.";
     return reason instanceof Error ? reason.message : "Google sign-in could not be completed.";
@@ -79,6 +90,25 @@ export default function LoginForm() {
     ].includes(code);
   }
 
+  function typeDigit(index: number, value: string) {
+    const clean = value.replace(/\D/g, "");
+    if (!clean) {
+      setDigits((current) => current.map((digit, at) => (at === index ? "" : digit)));
+      return;
+    }
+    if (clean.length > 1) {
+      setDigits((current) => {
+        const next = [...current];
+        clean.slice(0, 6 - index).split("").forEach((digit, offset) => { next[index + offset] = digit; });
+        return next;
+      });
+      boxes.current[Math.min(5, index + clean.length)]?.focus();
+      return;
+    }
+    setDigits((current) => current.map((digit, at) => (at === index ? clean : digit)));
+    if (index < 5) boxes.current[index + 1]?.focus();
+  }
+
   async function requestCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -96,6 +126,8 @@ export default function LoginForm() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not send a sign-in code.");
       setMessage(result.message);
+      setDigits(["", "", "", "", "", ""]);
+      setCooldown(60);
       setStep("code");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not send a sign-in code.");
@@ -106,8 +138,12 @@ export default function LoginForm() {
 
   async function verifyCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
     setError("");
+    if (code.length < 6) {
+      setError("Enter the six-digit code from your email.");
+      return;
+    }
+    setBusy(true);
     try {
       const response = await fetch("/api/auth/verify-code", {
         method: "POST",
@@ -128,7 +164,7 @@ export default function LoginForm() {
   async function loginWithGoogle() {
     setError("");
     if (!human) {
-      setError("Confirm the quick human check just above, then select Continue with Google.");
+      setError("Complete the quick human check above, then select Login with Google.");
       return;
     }
     setBusy(true);
@@ -151,12 +187,12 @@ export default function LoginForm() {
       const result = await response.json();
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("No SureFood account was found for this Google account. Create an account first, then sign in here.");
+          throw new Error("No Sure Foodz account was found for this Google account. Create an account first, then sign in here.");
         }
-        throw new Error(result.error || "Could not load your SureFood account.");
+        throw new Error(result.error || "Could not load your Sure Foodz account.");
       }
       if (!result.profile || typeof result.profile.role !== "string") {
-        throw new Error("Your SureFood account is missing its role. Contact support to restore your account.");
+        throw new Error("Your Sure Foodz account is missing its role. Contact support to restore your account.");
       }
       goToRole(result.profile.role);
     } catch (reason) {
@@ -168,26 +204,81 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="auth-form-wrap">
-      <div className="auth-heading"><span className="auth-overline">WELCOME BACK</span><h2>Good to see you.</h2><p>Sign in with a one-time email code. No password to remember.</p></div>
+    <div>
       {step === "email" ? (
-        <form className="auth-form" onSubmit={requestCode}>
-          <label htmlFor="login-email">Email address</label><input id="login-email" value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="you@example.com" required />
-          <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Sending code..." : "Email me a sign-in code"} <span>→</span></button>
+        <form onSubmit={requestCode} noValidate>
+          <div className="sf-field">
+            <label htmlFor="login-email">Email</label>
+            <input
+              id="login-email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              autoComplete="email"
+              placeholder="Enter your email address"
+              required
+            />
+          </div>
+          <HumanCheck verified={human} onChange={setHuman} disabled={busy} />
+          {!human && <p className="sf-auth-note">Complete the human check above, then continue.</p>}
+          <button className="sf-btn is-wide" type="submit" disabled={busy || !human}>
+            {busy ? "Sending your code…" : "Login"}
+          </button>
+          {error && <p className="sf-auth-error" role="alert">{error}</p>}
         </form>
       ) : (
-        <form className="auth-form" onSubmit={verifyCode}>
-          <p className="auth-flow-message">{message} <strong>{email}</strong></p>
-          <label htmlFor="login-code">Six-digit email code</label><input id="login-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" required />
-          <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Verifying..." : "Verify and sign in"} <span>→</span></button>
-          <button className="auth-back-link" type="button" onClick={() => { setStep("email"); setError(""); }}>Use a different email</button>
+        <form onSubmit={verifyCode} noValidate>
+          <div className="sf-otp-head">
+            <h2>Check your email</h2>
+            <p>Enter the 6-digit code we sent to <b>{email}</b></p>
+          </div>
+          <div className="sf-otp-row" role="group" aria-label="Six-digit sign-in code">
+            {digits.map((digit, index) => (
+              <input
+                key={index}
+                ref={(node) => { boxes.current[index] = node; }}
+                value={digit}
+                onChange={(event) => typeDigit(index, event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Backspace" && !digit && index > 0) boxes.current[index - 1]?.focus();
+                }}
+                inputMode="numeric"
+                autoComplete={index === 0 ? "one-time-code" : "off"}
+                aria-label={`Digit ${index + 1}`}
+                maxLength={6}
+                autoFocus={index === 0}
+              />
+            ))}
+          </div>
+          <div className="sf-otp-meta">
+            <span>
+              Didn&apos;t get the code?{" "}
+              <button
+                type="button"
+                disabled={cooldown > 0}
+                onClick={() => { setStep("email"); setError(""); }}
+              >
+                {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend it"}
+              </button>
+            </span>
+            <span className="sf-otp-timer" aria-hidden="true">{cooldown > 0 ? `${cooldown}s` : "Ready"}</span>
+          </div>
+          <button className="sf-btn is-wide" type="submit" disabled={busy}>
+            {busy ? "Verifying…" : "Submit"}
+          </button>
+          {error && <p className="sf-auth-error" role="alert">{error}</p>}
+          <p className="sf-auth-note" style={{ marginTop: 12 }}>{message}</p>
         </form>
       )}
-      <HumanCheck verified={human} onChange={setHuman} disabled={busy} />
-      {error && <p className="auth-error" role="alert">{error}</p>}
-      <div className="auth-divider"><span />or<span /></div>
-      <button className="google-button" type="button" disabled={busy} onClick={loginWithGoogle}><span className="google-mark">G</span>{busy ? "Connecting to Google…" : "Continue with Google"}</button>
-      <p className="auth-switch">New to SureFood? <a href="/signup">Create an account</a></p>
+
+      <div className="sf-or"><span>Or</span></div>
+
+      <button className="sf-google" type="button" disabled={busy || !human} onClick={loginWithGoogle}>
+        <span className="sf-google-mark" aria-hidden="true">G</span>
+        {busy ? "Connecting to Google…" : "Login with Google"}
+      </button>
+
+      <p className="sf-auth-switch">First time here? <a href="/signup">Sign up</a></p>
     </div>
   );
 }

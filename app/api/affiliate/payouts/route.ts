@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     if (!affiliateSnapshot.exists) return jsonError("Join the affiliate programme before requesting a payout.", 404);
     const affiliate = affiliateSnapshot.data() ?? {};
     if (String(affiliate.status ?? "active") !== "active") {
-      return jsonError("Your affiliate account is paused. Contact SureFood support.", 403);
+      return jsonError("Your affiliate account is paused. Contact Sure Foodz support.", 403);
     }
     const code = String(affiliate.code ?? "");
 
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     });
 
     return Response.json(
-      { payout: { id: created.id, amountMinor: availableMinor, status: "requested" }, message: "Payout requested. The SureFood team pays affiliate earnings by hand and will confirm once it is sent." },
+      { payout: { id: created.id, amountMinor: availableMinor, status: "requested" }, message: "Payout requested. The Sure Foodz team pays affiliate earnings by hand and will confirm once it is sent." },
       { status: 201 },
     );
   } catch (error) {

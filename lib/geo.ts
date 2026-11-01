@@ -1,4 +1,4 @@
-// SureFood lists and charges in Naira, so it is also the fallback when the visitor's
+// Sure Foodz lists and charges in Naira, so it is also the fallback when the visitor's
 // location cannot be detected (for example a plain local dev server).
 export const BASE_CURRENCY = "NGN";
 

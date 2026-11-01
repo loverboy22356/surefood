@@ -436,10 +436,10 @@ export default function AffiliatePage() {
 
   const shareButtons = () => (
     <div className="affd-share">
-      <a className="affd-share-wa" href={`https://wa.me/?text=${encodeURIComponent(`Get fresh food on SureFood: ${link}`)}`} target="_blank" rel="noreferrer">WhatsApp</a>
+      <a className="affd-share-wa" href={`https://wa.me/?text=${encodeURIComponent(`Get fresh food on Sure Foodz: ${link}`)}`} target="_blank" rel="noreferrer">WhatsApp</a>
       <a className="affd-share-fb" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`} target="_blank" rel="noreferrer">Facebook</a>
-      <a className="affd-share-x" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Fresh food on SureFood")}&url=${encodeURIComponent(link)}`} target="_blank" rel="noreferrer">X (Twitter)</a>
-      <a className="affd-share-tg" href={`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Get fresh food on SureFood")}`} target="_blank" rel="noreferrer">Telegram</a>
+      <a className="affd-share-x" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Fresh food on Sure Foodz")}&url=${encodeURIComponent(link)}`} target="_blank" rel="noreferrer">X (Twitter)</a>
+      <a className="affd-share-tg" href={`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Get fresh food on Sure Foodz")}`} target="_blank" rel="noreferrer">Telegram</a>
       <button type="button" onClick={() => void copy(link, "more")}><Icon name="share" /> {copied === "more" ? "Copied" : "More"}</button>
     </div>
   );
@@ -449,7 +449,7 @@ export default function AffiliatePage() {
   ) : !user ? (
     <section className="affd-card affd-join">
       <h2>Sign in to join the programme</h2>
-      <p>Your affiliate account uses the same SureFood account you shop with, so your code, orders and payouts stay in one place.</p>
+      <p>Your affiliate account uses the same Sure Foodz account you shop with, so your code, orders and payouts stay in one place.</p>
       <Link className="affd-cta" href="/login">Sign in to continue <Icon name="arrow" /></Link>
     </section>
   ) : loading && !summary ? (
@@ -483,7 +483,7 @@ export default function AffiliatePage() {
         <aside className="affd-side">
           <Link className="affd-brand" href="/">
             <span className="affd-brand-mark"><Icon name="leaf" /></span>
-            <span><strong>SureFood</strong><small>Fresh Food · Better Life</small></span>
+            <span><strong>Sure Foodz</strong><small>Fresh Food · Better Life</small></span>
           </Link>
             <Link className="affd-back" href="/">← Back to shop</Link>
           </aside>
@@ -491,12 +491,12 @@ export default function AffiliatePage() {
             <header className="affd-header">
               <form className="affd-search" onSubmit={submitSearch}>
               <span aria-hidden="true">⌕</span>
-              <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search products, categories, or anything…" aria-label="Search the SureFood shop" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search products, categories, or anything…" aria-label="Search the Sure Foodz shop" />
             </form>
             <div className="affd-top-actions">
               <Link className="affd-account" href="/account">
                 <span className="affd-account-avatar">S</span>
-                <span><strong>Affiliate programme</strong><small>SureFood</small></span>
+                <span><strong>Affiliate programme</strong><small>Sure Foodz</small></span>
               </Link>
             </div>
           </header>
@@ -515,7 +515,7 @@ export default function AffiliatePage() {
         <aside className="affd-side">
 <Link className="affd-brand" href="/">
           <span className="affd-brand-mark"><Icon name="leaf" /></span>
-          <span><strong>SureFood</strong><small>Fresh Food · Better Life</small></span>
+          <span><strong>Sure Foodz</strong><small>Fresh Food · Better Life</small></span>
         </Link>
           <nav className="affd-nav" aria-label="Affiliate sections">
             {navItems.map((item) => (
@@ -534,7 +534,7 @@ export default function AffiliatePage() {
           <div className="affd-side-card">
             <span className="affd-side-gift"><Icon name="gift" /></span>
             <strong>Grow together</strong>
-            <p>Share SureFood with your network and earn amazing rewards.</p>
+            <p>Share Sure Foodz with your network and earn amazing rewards.</p>
             <button type="button" className="affd-side-button" onClick={() => setSection("promotions")}>
               View promotions <Icon name="arrow" />
             </button>
@@ -546,7 +546,7 @@ export default function AffiliatePage() {
           <header className="affd-header">
             <form className="affd-search" onSubmit={submitSearch}>
             <span aria-hidden="true">⌕</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search products, categories, or anything…" aria-label="Search the SureFood shop" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" placeholder="Search products, categories, or anything…" aria-label="Search the Sure Foodz shop" />
           </form>
           <div className="affd-top-actions">
             <span className="affd-top-title">{activeSection?.label}</span>
@@ -601,8 +601,8 @@ export default function AffiliatePage() {
                 <section className="affd-hero">
                   <div className="affd-hero-copy">
                     <span className="affd-eyebrow">Affiliate program</span>
-                    <h1>Share SureFood,<br /><em>Earn commission!</em></h1>
-                    <p>Refer your friends, family and followers to SureFood and earn a commission on every successful purchase.</p>
+                    <h1>Share Sure Foodz,<br /><em>Earn commission!</em></h1>
+                    <p>Refer your friends, family and followers to Sure Foodz and earn a commission on every successful purchase.</p>
                     <ul className="affd-hero-points">
                       <li><span><Icon name="link" /></span>Get your<br />unique link</li>
                       <li><span><Icon name="share" /></span>Share it<br />anywhere</li>
@@ -620,7 +620,7 @@ export default function AffiliatePage() {
                       <span className="affd-hero-phone-notch" />
                       <div className="affd-hero-art-card">
                         <span className="affd-hero-art-logo"><Icon name="leaf" /></span>
-                        <strong>SureFood</strong>
+                        <strong>Sure Foodz</strong>
                         <small>REFER &amp; EARN</small>
                       </div>
                     </div>
@@ -712,7 +712,7 @@ export default function AffiliatePage() {
                 <section className="affd-banner">
                   <div>
                     <span className="affd-eyebrow">Affiliate links</span>
-                    <h1>Share SureFood,<br /><em>Earn commission!</em></h1>
+                    <h1>Share Sure Foodz,<br /><em>Earn commission!</em></h1>
                     <p>Get your unique affiliate link, share it with your friends, family and followers. Earn commission on every successful purchase made through your link.</p>
                     <ul className="affd-ticks is-inline">
                       <li>Unique tracking link</li>
@@ -764,7 +764,7 @@ export default function AffiliatePage() {
                   <div>
                     <span className="affd-eyebrow">Special promotions</span>
                     <h1>More shares,<br /><em>bigger rewards!</em></h1>
-                    <p>{campaigns.length > 0 ? `Bonus campaigns are running right now. Share your link and every paid order earns ${ratePercent}% of the goods value.` : "There are no bonus campaigns running right now."} These ready-to-share SureFood pages are the ones shoppers open most, and every paid order still earns {ratePercent}%.</p>
+                    <p>{campaigns.length > 0 ? `Bonus campaigns are running right now. Share your link and every paid order earns ${ratePercent}% of the goods value.` : "There are no bonus campaigns running right now."} These ready-to-share Sure Foodz pages are the ones shoppers open most, and every paid order still earns {ratePercent}%.</p>
                     <button className="affd-cta" type="button" onClick={() => void copy(link, "promo")}>{copied === "promo" ? "Link copied ✓" : "Copy my link"} <Icon name="arrow" /></button>
                   </div>
                   <div className="affd-banner-art is-megaphone" aria-hidden="true"><span><Icon name="megaphone" /></span><strong>Share more<br />Earn more</strong></div>
@@ -827,7 +827,7 @@ export default function AffiliatePage() {
                   <div>
                     <span className="affd-eyebrow">Earnings overview</span>
                     <h1>Your effort brings<br /><em>real rewards!</em></h1>
-                    <p>Track your earnings, monitor your progress and keep growing with SureFood.</p>
+                    <p>Track your earnings, monitor your progress and keep growing with Sure Foodz.</p>
                     <div className="affd-banner-stats">
                       <div><small>Total earnings</small><strong>{money(stats?.earnedMinor ?? 0)}</strong></div>
                       <div><small>Pending earnings</small><strong>{money(stats?.requestedMinor ?? 0)}</strong></div>
@@ -1062,7 +1062,7 @@ export default function AffiliatePage() {
                   <div>
                     <span className="affd-eyebrow">Settings</span>
                     <h1>Your affiliate<br /><em>details</em></h1>
-                    <p>Your affiliate account runs on your SureFood account. Change your name, phone or address from your profile.</p>
+                    <p>Your affiliate account runs on your Sure Foodz account. Change your name, phone or address from your profile.</p>
                     <Link className="affd-cta" href="/account">Open my profile <Icon name="arrow" /></Link>
                   </div>
                   <div className="affd-banner-art is-gear" aria-hidden="true"><span><Icon name="gear" /></span><strong>Turn your network<br />into earnings</strong></div>

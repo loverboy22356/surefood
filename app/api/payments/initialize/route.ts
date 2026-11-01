@@ -77,11 +77,11 @@ export async function POST(request: Request) {
     if (code === "ORDER_NOT_FOUND") return jsonError("Order not found.", 404);
     if (code === "ORDER_FORBIDDEN") return jsonError("You can only pay for your own order.", 403);
     if (code === "ORDER_NOT_READY") return jsonError("The seller must confirm the delivery fee before you can pay.", 409);
-    if (code === "SELLER_PAYOUT_REQUIRED") return jsonError("This seller must verify a business bank account before you can pay. Please contact the seller or SureFood support.", 409);
+    if (code === "SELLER_PAYOUT_REQUIRED") return jsonError("This seller must verify a business bank account before you can pay. Please contact the seller or Sure Foodz support.", 409);
     if (code === "PAYMENT_ALREADY_INITIALIZED") return jsonError("Payment is already starting or has already been submitted. Refresh your orders before trying again.", 409);
     if (code === "INVALID_AMOUNT") return jsonError("This order has an invalid payment total.", 400);
     if (code === "CUSTOMER_EMAIL_REQUIRED") return jsonError("Add a valid email address to your account before paying.", 409);
-    console.error("Could not prepare a SureFood payment.", error);
+    console.error("Could not prepare a Sure Foodz payment.", error);
     return jsonError("We could not prepare payment for this order.", 500);
   }
 
