@@ -566,7 +566,6 @@ html[data-theme="dark"] .sf-vendor-copy small { color: #b3b3b3; }
 html[data-theme="dark"] .sf-vendor-cta { color: #7ba6f4; }
 html[data-theme="dark"] .sf-promo { border: 1px solid rgba(255, 255, 255, 0.12); color: #f2f2f2; background: linear-gradient(135deg, #0d0d0d, #000000); }
 html[data-theme="dark"] .sf-promo small { color: #b3b3b3; }
-html[data-theme="dark"] .sf-trust-icon { color: #f2f2f2; }
 html[data-theme="dark"] .sf-brand-tile { background: #000000; border-color: rgba(255, 255, 255, 0.12); }
 html[data-theme="dark"] .sf-brand-monogram { background: #0d0d0d; color: #f2f2f2; }
 html[data-theme="dark"] .sf-brand-tile.is-ghost { background: #0d0d0d; border: 1px dashed rgba(255, 255, 255, 0.18); color: #b3b3b3; }
@@ -636,9 +635,6 @@ html[data-theme="dark"] .sf-hero-dot { background: #0d0d0d; }
 html[data-theme="dark"] .sf-hero-cta { background: #0d0d0d; color: #91b6f2; }
 html[data-theme="dark"] .sf-hero-arrow { background: rgba(10, 10, 10, 0.90); color: #f2f2f2; }
 html[data-theme="dark"] .sf-hero-dots button.is-on { background: #0d0d0d; }
-html[data-theme="dark"] .sf-trust { border: 1px solid rgba(255, 255, 255, 0.12); background: #0d0d0d; }
-html[data-theme="dark"] .sf-trust-item { border-right: 1px solid rgba(255, 255, 255, 0.12); }
-html[data-theme="dark"] .sf-trust-item small { color: #b3b3b3; }
 html[data-theme="dark"] .sf-brand-tile { border: 1px solid rgba(255, 255, 255, 0.12); background: #0d0d0d; color: #f2f2f2; }
 html[data-theme="dark"] .sf-circle { color: #f2f2f2; }
 html[data-theme="dark"] .sf-circle-art { background: linear-gradient(180deg, #000000, #000000); }
@@ -1662,11 +1658,6 @@ html[data-theme="dark"] .hm-product-media::after { background: linear-gradient(1
 
 @media (max-width: 420px) {
   html[data-theme="dark"] .hm-assurance-inner > div + div { border-top: 1px solid rgba(255, 255, 255, 0.12); }
-  html[data-theme="dark"] .sf-trust-item { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
-}
-
-@media (max-width: 900px) {
-  html[data-theme="dark"] .sf-trust-item:nth-child(1), html[data-theme="dark"] .sf-trust-item:nth-child(2) { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
 }
 
 @media (max-width: 980px) {

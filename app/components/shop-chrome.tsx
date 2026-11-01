@@ -492,6 +492,32 @@ export function ShopHeader() {
 export function ShopFooter() {
   return (
     <footer className="sf-footer">
+      <div className="sf-footer-trust" aria-label="Why shop with Sure Foodz">
+        <div className="sf-footer-trust-item">
+          <span className="sf-footer-trust-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3.2 20 7.5v9L12 20.8 4 16.5v-9Z" /><path d="M4 7.5 12 12l8-4.5M12 12v8.8" strokeLinejoin="round" /></svg>
+          </span>
+          <span><b>Special order</b><small>Delivery in 24/H</small></span>
+        </div>
+        <div className="sf-footer-trust-item">
+          <span className="sf-footer-trust-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" /><path d="M8 5H5v2a4 4 0 0 0 4 4M16 5h3v2a4 4 0 0 1-4 4" /><path d="M12 12v5M9 20h6l-1-3h-4l-1 3Z" strokeLinejoin="round" /></svg>
+          </span>
+          <span><b>24 hours return</b><small>100% money-back guarantee</small></span>
+        </div>
+        <div className="sf-footer-trust-item">
+          <span className="sf-footer-trust-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18M7 14.5h3" strokeLinecap="round" /></svg>
+          </span>
+          <span><b>Pay later</b><small>Buy now, pay over 30 days</small></span>
+        </div>
+        <div className="sf-footer-trust-item">
+          <span className="sf-footer-trust-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 13a8 8 0 0 1 16 0" /><rect x="3" y="13" width="4" height="7" rx="2" /><rect x="17" y="13" width="4" height="7" rx="2" /></svg>
+          </span>
+          <span><b>Support 24/7</b><small>Live contact and messages</small></span>
+        </div>
+      </div>
       <div className="sf-footer-grid">
         <div>
           <div className="sf-footer-brand">
