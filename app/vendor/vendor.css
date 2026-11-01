@@ -421,16 +421,20 @@
   .vendor-page { padding: 16px 12px; }
   .vendor-page-heading { align-items: flex-start; flex-direction: column; gap: 11px; }
   .vendor-page-heading h1 { font-size: 20px; }
-  .vendor-banner { grid-template-columns: minmax(0, 1fr); min-height: 0; gap: 6px; padding: 22px 18px 16px; }
+  /* Phones: keep the hero to a shallow strip instead of filling the screen. */
+  .vendor-banner { grid-template-columns: minmax(0, 1fr); min-height: 0; gap: 4px; padding: 16px 14px 12px; }
   .vendor-banner-curve.is-a { width: 380px; height: 380px; left: -190px; bottom: -240px; }
   .vendor-banner-curve.is-b { width: 240px; height: 240px; right: -100px; top: -140px; }
   .vendor-banner-ring { display: none; }
-  .vendor-banner h2 { font-size: 22px; }
-  .vendor-banner-copy > p { font-size: 12px; }
-  .vendor-banner-art { padding: 2px 0 0; }
-  .vendor-banner-art img { max-height: 168px; }
-  .vendor-banner-cta { flex: 1 1 100%; justify-content: center; }
-  .vendor-banner-ghost { flex: 1 1 100%; justify-content: center; height: 36px; }
+  .vendor-banner-dot { top: 14px; right: 16px; width: 10px; height: 10px; }
+  .vendor-banner-eyebrow { margin-bottom: 6px; font-size: 10px; letter-spacing: 1.2px; }
+  .vendor-banner h2 { margin-bottom: 6px; font-size: 19px; line-height: 1.15; }
+  .vendor-banner-copy > p { margin-bottom: 12px; font-size: 11.5px; line-height: 1.45; }
+  .vendor-banner-actions { flex-wrap: nowrap; gap: 8px; }
+  .vendor-banner-art { padding: 0; }
+  .vendor-banner-art img { max-height: 104px; }
+  .vendor-banner-cta { flex: 1 1 auto; justify-content: center; height: 36px; padding: 0 12px; font-size: 12px; }
+  .vendor-banner-ghost { flex: 0 1 auto; height: 36px; padding: 0 12px; font-size: 11.5px; }
   .vendor-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .vendor-metric { min-height: 72px; gap: 8px; padding: 9px; }
   .metric-icon { width: 32px; height: 32px; font-size: 17px; }

@@ -2897,3 +2897,25 @@ html[data-theme="dark"] .sf-location-drop { background: #0d0d0d; border-color: #
   .sf-location-panel { padding: 14px 14px 16px; }
   .sf-location-panel .sf-locations { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); max-height: 320px; }
 }
+
+/* Phones: the home hero was filling the screen, so shrink it to a strip. */
+@media (max-width: 760px) {
+  .sf-hero { margin-top: 12px; min-height: 0; gap: 4px; padding: 16px 14px 12px; border-radius: 12px; }
+  .sf-hero-curve.is-a { width: 320px; height: 320px; left: -170px; bottom: -210px; }
+  .sf-hero-curve.is-b { width: 200px; height: 200px; right: -90px; top: -120px; }
+  .sf-hero-ring { display: none; }
+  .sf-hero-dot { top: 13px; right: 15px; width: 9px; height: 9px; }
+  .sf-hero-copy { padding-left: 0; }
+  .sf-hero-eyebrow { margin-bottom: 5px; font-size: 9.5px; letter-spacing: 1.2px; }
+  .sf-hero-copy h1, .sf-hero-copy p.sf-hero-title { margin-bottom: 5px; font-size: 19px; line-height: 1.15; }
+  .sf-hero-copy > p.sf-hero-text { margin-bottom: 11px; font-size: 11.5px; line-height: 1.4; }
+  .sf-hero-actions { flex-wrap: nowrap; gap: 8px; }
+  .sf-hero-art { padding: 0; }
+  .sf-hero-art img { max-height: 96px; }
+  .sf-hero-cta { height: 34px; flex: 1 1 auto; justify-content: center; padding: 0 10px; font-size: 11.5px; }
+  .sf-hero-ghost { height: 34px; flex: 0 1 auto; padding: 0 10px; font-size: 11px; }
+  .sf-hero-arrow { width: 26px; height: 26px; font-size: 12px; }
+  .sf-hero-arrow.is-prev { left: 5px; }
+  .sf-hero-arrow.is-next { right: 5px; }
+  .sf-hero-dots { bottom: 7px; }
+}
