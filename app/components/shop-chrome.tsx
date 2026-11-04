@@ -15,6 +15,7 @@ import {
   type MarketplaceProduct,
 } from "./marketplace-product";
 import "@/app/shop.css";
+import "@/app/marketplace.css";
 
 type PlaceOption = { code: string; name: string };
 
@@ -40,10 +41,10 @@ export function ShopHeader() {
   const [term, setTerm] = useState("");
   const [mega, setMega] = useState<string | null>(null);
   const [locationOpen, setLocationOpen] = useState(false);
-  const [countries, setCountries] = useState<PlaceOption[]>([]);
-  const [country, setCountry] = useState("NG");
   const [regions, setRegions] = useState<PlaceOption[]>([]);
   const [regionsLoading, setRegionsLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locateNote, setLocateNote] = useState("");
   const [catalog, setCatalog] = useState<MarketplaceProduct[] | null>(null);
   const [categoryNames, setCategoryNames] = useState<string[]>(quickNav);
   const [basket, setBasket] = useState(0);
@@ -70,30 +71,18 @@ export function ShopHeader() {
     return () => document.removeEventListener("keydown", dismiss);
   }, [mega, locationOpen]);
 
-  /* The location dropdown loads its country list once, then regions per country. */
+  /*
+   * The pill locates the buyer automatically. The state list is only loaded as a
+   * fallback, after the browser refuses or cannot resolve the position.
+   */
   useEffect(() => {
-    if (!locationOpen || countries.length) return;
-    let active = true;
-    void (async () => {
-      try {
-        const response = await fetch("/api/location/regions", { signal: AbortSignal.timeout(15_000) });
-        const data = await response.json();
-        if (!active || !response.ok) return;
-        setCountries(Array.isArray(data.countries) ? data.countries as PlaceOption[] : []);
-      } catch {
-        /* the picker keeps the default country when the list is unavailable */
-      }
-    })();
-    return () => { active = false; };
-  }, [locationOpen, countries.length]);
-
-  useEffect(() => {
-    if (!locationOpen) return;
+    if (!locationOpen || locating || !locateNote || regions.length) return;
     let active = true;
     setRegionsLoading(true);
     void (async () => {
       try {
-        const response = await fetch(`/api/location/regions?country=${country}`, { signal: AbortSignal.timeout(15_000) });
+        /* Sure Foodz trades across Nigeria, so the fallback lists Nigerian states. */
+        const response = await fetch("/api/location/regions?country=NG", { signal: AbortSignal.timeout(15_000) });
         const data = await response.json();
         if (!active) return;
         setRegions(response.ok && Array.isArray(data.states) ? data.states as PlaceOption[] : []);
@@ -104,7 +93,64 @@ export function ShopHeader() {
       }
     })();
     return () => { active = false; };
-  }, [locationOpen, country]);
+  }, [locationOpen, locating, locateNote, regions.length]);
+
+  /** Remembers the buyer's city and opens the shop filtered to that area. */
+  function shopIn(area: string, city: string) {
+    const label = city || area;
+    try {
+      window.localStorage.setItem("surefood-place", label);
+    } catch {
+      /* storage can be blocked; the filter still applies for this visit */
+    }
+    setPlace(label);
+    setLocating(false);
+    setLocateNote("");
+    setLocationOpen(false);
+    setMega(null);
+    router.push(`/shop?state=${encodeURIComponent(area)}`);
+  }
+
+  /** Asks the browser for a GPS fix, names it, then shops that area. */
+  function shopNearMe() {
+    setMega(null);
+    setLocationOpen(true);
+    setLocateNote("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocating(false);
+      setLocateNote("This browser cannot share a location. Choose your area below.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(`/api/location?lat=${latitude}&lon=${longitude}`, { signal: AbortSignal.timeout(15_000) });
+          const data = await response.json();
+          const area = String(data?.region || data?.city || "").trim();
+          if (!response.ok || !area) {
+            setLocating(false);
+            setLocateNote("We reached your position but could not name the area. Choose your area below.");
+            return;
+          }
+          shopIn(area, String(data?.city || "").trim());
+        } catch {
+          setLocating(false);
+          setLocateNote("We could not read your area. Check your connection and try again.");
+        }
+      },
+      (error) => {
+        setLocating(false);
+        setLocateNote(
+          error.code === error.PERMISSION_DENIED
+            ? "Location is blocked for this site. Allow it in your browser, then try again."
+            : "We could not get a fix on your location. Try again or choose your area below.",
+        );
+      },
+      { enableHighAccuracy: false, timeout: 12_000, maximumAge: 300_000 },
+    );
+  }
 
   /** Opens the mega menu and, the first time, loads the catalogue it previews. */
   async function openMenu(category: string) {
@@ -338,8 +384,7 @@ export function ShopHeader() {
 
       <nav
         className="sf-nav"
-        aria-label="Shop by category"
-        onMouseLeave={() => { setMega(null); setLocationOpen(false); }}
+        aria-label="Shop by category"            onMouseLeave={() => { setMega(null); if (!locating) setLocationOpen(false); }}
       >
         <div className="sf-nav-in">
           <button
@@ -359,16 +404,17 @@ export function ShopHeader() {
             type="button"
             className={locationOpen ? "sf-nav-pill is-open" : "sf-nav-pill"}
             aria-expanded={locationOpen}
+            aria-busy={locating}
             onClick={() => {
-              setMega(null);
-              setLocationOpen((open) => !open);
+              if (locating) return;
+              shopNearMe();
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 21s6.5-5.4 6.5-10.5a6.5 6.5 0 1 0-13 0C5.5 15.6 12 21 12 21Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
               <circle cx="12" cy="10.5" r="2.3" stroke="currentColor" strokeWidth="1.8" />
             </svg>
-            Shop by location
+            {locating ? "Finding you…" : "Shop near me"}
             <span className="sf-nav-chev" aria-hidden="true">▾</span>
           </button>
           {quickNav.map((name) => (
@@ -444,42 +490,55 @@ export function ShopHeader() {
           <div className="sf-location-drop">
             <div className="sf-location-panel">
               <div className="sf-location-panel-head">
-                <strong>Shop by location</strong>
-                <label className="sf-location-country">
-                  <span className="sf-visually-hidden">Country</span>
-                  <select
-                    value={country}
-                    onChange={(event) => setCountry(event.target.value)}
-                    aria-label="Choose a country"
-                  >
-                    {countries.length === 0 && <option value="NG">Nigeria</option>}
-                    {countries.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
-                  </select>
-                </label>
+                <strong>{locating ? "Finding your location" : "Sellers near you"}</strong>
+                {!locating && (
+                  <button type="button" className="sf-locate-again" onClick={shopNearMe}>
+                    <span aria-hidden="true">◎</span> Use my location
+                  </button>
+                )}
               </div>
 
-              {regionsLoading ? (
-                <div className="sf-locations" aria-hidden="true">
-                  {Array.from({ length: 12 }).map((_, index) => (
-                    <span key={index} className="sf-location-pill is-loading" />
-                  ))}
-                </div>
-              ) : regions.length ? (
-                <div className="sf-locations">
-                  {regions.map((region) => (
-                    <Link
-                      key={region.code}
-                      className="sf-location-pill"
-                      title={`Sellers trading in ${region.name}`}
-                      href={`/shop?state=${encodeURIComponent(region.name)}`}
-                      onClick={() => setLocationOpen(false)}
-                    >
-                      {region.name}
-                    </Link>
-                  ))}
-                </div>
+              {locating ? (
+                <p className="sf-locate-status" role="status">
+                  <span className="sf-locate-spinner" aria-hidden="true" />
+                  Reading your position — allow location access if your browser asks.
+                </p>
               ) : (
-                <p className="sf-location-empty">No regions listed here yet.</p>
+                <>
+                  <p className={locateNote ? "sf-locate-status is-error" : "sf-locate-status"} role="status">
+                    {locateNote || "We only use your position to show products that can reach you."}
+                  </p>
+                  <details className="sf-locate-fallback" open={Boolean(locateNote)}>
+                    <summary>Choose your area instead</summary>
+                    {regionsLoading ? (
+                      <div className="sf-locations" aria-hidden="true">
+                        {Array.from({ length: 8 }).map((_, index) => (
+                          <span key={index} className="sf-location-pill is-loading" />
+                        ))}
+                      </div>
+                    ) : regions.length ? (
+                      <div className="sf-locations">
+                        {regions.map((region) => (
+                          <Link
+                            key={region.code}
+                            className="sf-location-pill"
+                            title={`Sellers trading in ${region.name}`}
+                            href={`/shop?state=${encodeURIComponent(region.name)}`}
+                            onClick={() => {
+                              try { window.localStorage.setItem("surefood-place", region.name); } catch { /* blocked storage */ }
+                              setPlace(region.name);
+                              setLocationOpen(false);
+                            }}
+                          >
+                            {region.name}
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="sf-location-empty">No regions listed here yet.</p>
+                    )}
+                  </details>
+                </>
               )}
             </div>
           </div>

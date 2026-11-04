@@ -11,6 +11,7 @@ import {
   productImageUrl,
   productSourceLabels,
   readFavourites,
+  rememberViewed,
   sellerRoleLabels,
   writeFavourites,
   type ApiProduct,
@@ -73,6 +74,7 @@ export default function ProductPage() {
   useEffect(() => {
     if (!product) return;
     setSaved(readFavourites().some((item) => item.id === product.id));
+    rememberViewed(product.id);
   }, [product]);
 
   useEffect(() => {
@@ -239,7 +241,7 @@ export default function ProductPage() {
                     <span aria-hidden="true">🏪</span>
                     <span style={{ display: "grid", gap: 2 }}>
                       <b style={{ fontSize: 12.5 }}>
-                        {sellerName} {product.sellerVerified && <span className="sf-verify">Verified vendor</span>}
+                        {sellerName} {<span className="sf-verify">{product.sellerVerified ? "Verified" : "Approved"} {roleLabel.toLowerCase()}</span>}
                       </b>
                       <small style={{ fontSize: 10.5, color: "var(--sf-muted)" }}>{place}</small>
                     </span>

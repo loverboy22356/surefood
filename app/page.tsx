@@ -4,14 +4,18 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
 import {
+  ProductDetailsDialog,
   apiProductToListing,
-  formatMarketMoney,
-  productImageUrl,
   readFavourites,
+  productImageUrl,
+  readRecentlyViewed,
+  sellerRoleLabels,
+  TrustedPartners,
   writeFavourites,
   type ApiProduct,
   type MarketplaceProduct,
 } from "@/app/components/marketplace-product";
+import { ProductTile, ProductTileSkeleton, productDiscount } from "@/app/components/product-tile";
 import { addItemToBasket } from "@/app/components/cart-client";
 import { DEFAULT_PRODUCT_CATEGORIES } from "@/lib/product-categories";
 import "./home-sections.css";
@@ -27,27 +31,8 @@ type SellerCard = {
   verificationStatus?: string;
 };
 
-const categoryIcons: Record<string, string> = {
-  "Fresh vegetables": "🥬",
-  "Fresh fruits": "🍎",
-  "Meat & seafood": "🍗",
-  "Dairy & eggs": "🥛",
-  Bakery: "🥖",
-  "Pantry essentials": "🍚",
-  Drinks: "🧃",
-  "Snacks & treats": "🍪",
-  "Frozen foods": "🧊",
-  "Home & kitchen": "🍳",
-  "Health & beauty": "🧴",
-  "Baby & kids": "🍼",
-  "Pet supplies": "🐾",
-  "Household essentials": "🧺",
-};
-
-function discountPercent(product: MarketplaceProduct) {
-  if (!product.oldPrice || product.oldPrice <= product.price) return 0;
-  return Math.round((1 - product.price / product.oldPrice) * 100);
-}
+const farmAisles = ["Fresh vegetables", "Fresh fruits", "Meat & seafood", "Dairy & eggs", "Bakery"];
+const pantryAisles = ["Pantry essentials", "Snacks & treats", "Drinks", "Frozen foods"];
 
 function sellerName(seller: SellerCard) {
   return seller.businessName || seller.displayName || "Sure Foodz seller";
@@ -62,15 +47,11 @@ function useDealCountdown() {
       const end = new Date(now);
       end.setHours(23, 59, 59, 999);
       const diff = Math.max(0, end.getTime() - now.getTime());
-      const d = Math.floor(diff / 86_400_000);
-      const h = Math.floor((diff % 86_400_000) / 3_600_000);
-      const m = Math.floor((diff % 3_600_000) / 60_000);
-      const s = Math.floor((diff % 60_000) / 1000);
       setLeft({
-        d: String(d).padStart(2, "0"),
-        h: String(h).padStart(2, "0"),
-        m: String(m).padStart(2, "0"),
-        s: String(s).padStart(2, "0"),
+        d: String(Math.floor(diff / 86_400_000)).padStart(2, "0"),
+        h: String(Math.floor((diff % 86_400_000) / 3_600_000)).padStart(2, "0"),
+        m: String(Math.floor((diff % 3_600_000) / 60_000)).padStart(2, "0"),
+        s: String(Math.floor((diff % 60_000) / 1000)).padStart(2, "0"),
       });
     };
     tick();
@@ -86,7 +67,6 @@ const heroSlides = [
     title: "Latest fresh vegetables,",
     accent: "up to 80% off",
     copy: "Farm-picked produce from verified sellers, delivered across Nigeria.",
-    image: "/images/home-produce.webp",
     cta: "Shop groceries",
     href: "/shop",
     badge: "Save up to 80%",
@@ -96,7 +76,6 @@ const heroSlides = [
     title: "Stock your kitchen,",
     accent: "skip the middleman",
     copy: "Rice, grains and staples straight from verified suppliers at market prices.",
-    image: "/images/promo-local-farmers.png",
     cta: "Shop staples",
     href: "/shop?category=Pantry%20essentials",
     badge: "Bulk pricing",
@@ -106,7 +85,6 @@ const heroSlides = [
     title: "Take the food home today,",
     accent: "pay over 30 days",
     copy: "No bank card needed. Apply once with your NIN, income and address.",
-    image: "/images/promo-quality.png",
     cta: "Apply for Pay Later",
     href: "/pay-later",
     badge: "No card needed",
@@ -118,9 +96,14 @@ export default function Home() {
   const [sellers, setSellers] = useState<SellerCard[]>([]);
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [favourites, setFavourites] = useState<MarketplaceProduct[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [place, setPlace] = useState("");
   const [notice, setNotice] = useState("");
   const [slide, setSlide] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [quickView, setQuickView] = useState<MarketplaceProduct | null>(null);
   const countdown = useDealCountdown();
 
   useEffect(() => {
@@ -139,6 +122,8 @@ export default function Home() {
         ? (products.value.products as ApiProduct[]).map(apiProductToListing)
         : [];
       setCatalog(listings);
+      // The catalogue failing is not the same as an empty shelf: say so and offer a retry.
+      setCatalogError(products.status === "rejected");
       const approvedVendors = vendorList.status === "fulfilled" && Array.isArray(vendorList.value.sellers)
         ? vendorList.value.sellers as SellerCard[]
         : [];
@@ -164,8 +149,15 @@ export default function Home() {
       setLoading(false);
     })();
     setFavourites(readFavourites());
+    setRecentIds(readRecentlyViewed());
+    try {
+      const stored = window.localStorage.getItem("surefood-place") ?? window.localStorage.getItem("surefood-city");
+      if (stored) setPlace(stored.replace(/"/g, "").trim());
+    } catch {
+      /* storage can be blocked; the page simply stays national */
+    }
     return () => { active = false; };
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -180,38 +172,77 @@ export default function Home() {
   }, [notice]);
 
   const deals = useMemo(() => {
-    const discounted = catalog.filter((product) => discountPercent(product) > 0);
-    return (discounted.length ? discounted : catalog).slice(0, 4);
+    const discounted = [...catalog]
+      .filter((product) => productDiscount(product) > 0)
+      .sort((a, b) => productDiscount(b) - productDiscount(a));
+    return (discounted.length >= 4 ? discounted : catalog).slice(0, 4);
   }, [catalog]);
+
+  const bestDeal = deals.length ? productDiscount(deals[0]) : 0;
+
+  /** The API returns newest listings first, so the head of the list is the arrivals shelf. */
+  const arrivals = useMemo(() => catalog.slice(0, 10), [catalog]);
+
+  const farmShelf = useMemo(
+    () => catalog.filter((product) => farmAisles.includes(product.category)).slice(0, 10),
+    [catalog],
+  );
+
+  const pantryShelf = useMemo(
+    () => catalog.filter((product) => pantryAisles.includes(product.category)).slice(0, 10),
+    [catalog],
+  );
 
   const categories = useMemo(() => {
     const names = [...DEFAULT_PRODUCT_CATEGORIES, ...extraCategories];
     const unique = names.filter((name, index) => names.findIndex((other) => other.toLowerCase() === name.toLowerCase()) === index);
-    const counted = unique.map((name) => ({
-      name,
-      count: catalog.filter((product) => product.category.toLowerCase() === name.toLowerCase()).length,
-      image: catalog.find((product) => product.category.toLowerCase() === name.toLowerCase() && product.imageUrl)?.imageUrl,
-    }));
-    return counted.sort((a, b) => b.count - a.count).slice(0, 12);
+    return unique
+      .map((name) => ({
+        name,
+        count: catalog.filter((product) => product.category.toLowerCase() === name.toLowerCase()).length,
+      }))
+      .filter((entry) => entry.count > 0)
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 10);
   }, [catalog, extraCategories]);
 
-  const frequently = useMemo(() => catalog.slice(0, 8), [catalog]);
-
-  // Each vendor card shows that store's own artwork, taken from its best listing.
-  const vendorCards = useMemo(
-    () => sellers.slice(0, 3).map((seller) => {
+  // Each vendor card shows that store's own artwork, taken from its live listings.
+  const vendorCards = useMemo(() => {
+    const cards = sellers.map((seller) => {
       const items = catalog.filter((product) => product.sellerId === seller.id);
-      const best = items.reduce<MarketplaceProduct | null>(
-        (acc, product) => (!acc || discountPercent(product) > discountPercent(acc) ? product : acc),
-        null,
-      );
-      return { seller, product: best, count: items.length, off: best ? discountPercent(best) : 0 };
-    }),
-    [catalog, sellers],
+      const off = items.reduce((best, product) => Math.max(best, productDiscount(product)), 0);
+      return { seller, items, off };
+    });
+    const local = place
+      ? cards.filter(({ seller, items }) => [seller.city, seller.region, items[0]?.sellerCity, items[0]?.sellerRegion]
+        .some((value) => (value ?? "").trim().toLowerCase() === place.toLowerCase()))
+      : [];
+    return (local.length ? local : cards).slice(0, 3);
+  }, [catalog, place, sellers]);
+
+  const recommended = useMemo(() => {
+    const aisles = new Set<string>();
+    for (const item of favourites) aisles.add(item.category);
+    for (const id of recentIds) {
+      const product = catalog.find((entry) => entry.id === id);
+      if (product) aisles.add(product.category);
+    }
+    if (!aisles.size) return [];
+    return catalog
+      .filter((product) => aisles.has(product.category) && !recentIds.slice(0, 2).includes(product.id))
+      .slice(0, 10);
+  }, [catalog, favourites, recentIds]);
+
+  const recentlyViewed = useMemo(
+    () => recentIds
+      .map((id) => catalog.find((product) => product.id === id))
+      .filter((product): product is MarketplaceProduct => Boolean(product))
+      .slice(0, 10),
+    [catalog, recentIds],
   );
 
-  function add(product: MarketplaceProduct) {
-    const result = addItemToBasket(product);
+  function add(product: MarketplaceProduct, quantity = 1) {
+    const result = addItemToBasket(product, quantity);
     setNotice(result.message);
     if (result.ok) window.dispatchEvent(new Event("surefood-cart-changed"));
   }
@@ -226,6 +257,21 @@ export default function Home() {
   }
 
   const current = heroSlides[slide];
+  const isSaved = (product: MarketplaceProduct) => favourites.some((item) => item.id === product.id);
+
+  const tile = (product: MarketplaceProduct, options: { variant?: "grid" | "rail"; flag?: string; priority?: boolean } = {}) => (
+    <ProductTile
+      key={product.id}
+      product={product}
+      saved={isSaved(product)}
+      onToggleSave={toggleSave}
+      onAdd={add}
+      onQuickView={setQuickView}
+      variant={options.variant}
+      flag={options.flag}
+      priority={options.priority}
+    />
+  );
 
   return (
     <div className="sf-page">
@@ -244,6 +290,13 @@ export default function Home() {
               <Link className="sf-hero-cta" href={current.href}>{current.cta} →</Link>
               <Link className="sf-hero-ghost" href="/shop?deals=1">{current.badge}</Link>
             </div>
+            {catalog.length > 0 && (
+              <dl className="sf-hero-stats">
+                <div><dt>Live listings</dt><dd>{catalog.length}</dd></div>
+                <div><dt>{sellers.length === 1 ? "Verified seller" : "Verified sellers"}</dt><dd>{sellers.length}</dd></div>
+                <div><dt>Aisles open</dt><dd>{categories.length}</dd></div>
+              </dl>
+            )}
           </div>
           <div className="sf-hero-art">
             <img src="/images/hero-produce.webp" alt="Sure Foodz fresh produce basket, grocery bag and delivery app" />
@@ -263,211 +316,239 @@ export default function Home() {
           </div>
         </section>
 
-        {sellers.length > 0 && (
-          <section className="sf-section">
-            <div className="sf-section-head">
-              <h2>Shop <em>by brand</em></h2>
-              <Link className="sf-more" href="/shop">View all</Link>
+        <section className="sf-sec" id="deals">
+          <div className="sf-flash">
+            <div>
+              <div className="sf-sec-head">
+                <div className="sf-sec-copy">
+                  <span className="sf-sec-kicker">Limited time</span>
+                  <h2>Deals of <em>the day</em></h2>
+                  <p className="sf-sec-sub">The steepest discounts in every aisle, while stock lasts.</p>
+                </div>
+                <div className="sf-sec-side">
+                  <Link className="sf-sec-link" href="/shop?deals=1">All offers <span aria-hidden="true">→</span></Link>
+                </div>
+              </div>
+              <div className="sf-flash-grid">
+                {loading
+                  ? <ProductTileSkeleton count={4} />
+                  : deals.map((product) => tile(product, { priority: true }))}
+              </div>
             </div>
-            <div className="sf-brands">
-              {sellers.slice(0, 6).map((seller) => (
-                <Link key={seller.id} className="sf-brand-tile" href={`/store/${seller.id}`}>
-                  <span className={`sf-brand-monogram${seller.logoUrl ? " has-logo" : ""}`} aria-hidden="true">
-                    {seller.logoUrl
-                      ? <img src={seller.logoUrl} alt="" loading="lazy" />
-                      : sellerName(seller).slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="sf-brand-name">{sellerName(seller).slice(0, 16)}</span>
-                </Link>
-              ))}
+            <aside className="sf-flash-side">
+              <span className="sf-flash-kicker">Resets at midnight</span>
+              <h3>{bestDeal > 0 ? `Up to ${bestDeal}% off` : "Today's best baskets"}</h3>
+              <p>Prices go back up when the timer runs out. Checkout before it does.</p>
+              <div className="sf-flash-clock" role="timer" aria-label="Time left on today's deals">
+                <span>{countdown.h}<small>hrs</small></span>
+                <span>{countdown.m}<small>min</small></span>
+                <span>{countdown.s}<small>sec</small></span>
+              </div>
+              <Link className="sf-flash-cta" href="/shop?deals=1">Shop all deals</Link>
+            </aside>
+          </div>
+        </section>
+
+        <section className="sf-sec">
+          <div className="sf-sec-head">
+            <div className="sf-sec-copy">
+              <span className="sf-sec-kicker">Just landed</span>
+              <h2>New <em>arrivals</em></h2>
+              <p className="sf-sec-sub">The latest listings from vendors and suppliers on Sure Foodz.</p>
             </div>
+            <div className="sf-sec-side">
+              <Link className="sf-sec-link" href="/shop">Shop everything <span aria-hidden="true">→</span></Link>
+            </div>
+          </div>
+          <div className="p-rail">
+            {loading
+              ? <ProductTileSkeleton count={5} variant="rail" />
+              : arrivals.map((product) => tile(product, { variant: "rail", flag: "New" }))}
+          </div>
+        </section>
+
+        {farmShelf.length > 0 && (
+          <section className="sf-sec">
+            <div className="sf-sec-head">
+              <div className="sf-sec-copy">
+                <span className="sf-sec-kicker">Market aisle</span>
+                <h2>Farm <em>fresh</em></h2>
+                <p className="sf-sec-sub">Vegetables, fruit, meat, dairy and bakery from sellers near you.</p>
+              </div>
+              <div className="sf-sec-side">
+                <Link className="sf-sec-link" href="/shop?category=Fresh%20vegetables">Fresh aisles <span aria-hidden="true">→</span></Link>
+              </div>
+            </div>
+            <div className="p-rail">{farmShelf.map((product) => tile(product, { variant: "rail" }))}</div>
           </section>
         )}
 
-        <section className="sf-section" id="deals">
-          <div className="sf-section-head">
-            <h2>Today&apos;s deals of the day</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span className="sf-countdown">
-                Deals end in
-                <b>{countdown.d}d</b><b>{countdown.h}h</b><b>{countdown.m}m</b><b>{countdown.s}s</b>
-              </span>
-              <Link className="sf-more" href="/shop?deals=1">View all deals</Link>
+        {pantryShelf.length > 0 && (
+          <section className="sf-sec">
+            <div className="sf-sec-head">
+              <div className="sf-sec-copy">
+                <span className="sf-sec-kicker">Stock the kitchen</span>
+                <h2>Pantry &amp; <em>staples</em></h2>
+                <p className="sf-sec-sub">Rice, oils, drinks and everyday essentials — buy in bulk and save.</p>
+              </div>
+              <div className="sf-sec-side">
+                <Link className="sf-sec-link" href="/shop?category=Pantry%20essentials">Pantry aisle <span aria-hidden="true">→</span></Link>
+              </div>
             </div>
-          </div>
-          {loading ? (
-            <div className="sf-grid" aria-hidden="true">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="sf-card" style={{ height: 320, opacity: .45 }} />
-              ))}
+            <div className="p-rail">{pantryShelf.map((product) => tile(product, { variant: "rail" }))}</div>
+          </section>
+        )}
+
+        {sellers.length > 0 && (
+          <section className="sf-sec">
+            <div className="sf-sec-head">
+              <div className="sf-sec-copy">
+                <span className="sf-sec-kicker">{place ? `Trading in ${place}` : "Our marketplace"}</span>
+                <h2>{place ? <>Vendors <em>near you</em></> : <>Featured <em>vendors</em></>}</h2>
+                <p className="sf-sec-sub">
+                  {place
+                    ? `Stores selling around ${place}, with their newest stock on the shelf.`
+                    : "Verified stores on Sure Foodz, with their newest listings in stock."}
+                </p>
+              </div>
+              <div className="sf-sec-side">
+                <Link className="sf-sec-link" href="/shop">All stores <span aria-hidden="true">→</span></Link>
+              </div>
             </div>
-          ) : deals.length ? (
-            <div className="sf-grid is-four">
-              {deals.map((product) => {
-                const off = discountPercent(product);
-                const saved = favourites.some((item) => item.id === product.id);
-                return (
-                  <article key={product.id} className="sf-card">
-                    <Link className={product.imageUrl ? "sf-card-art" : "sf-card-art is-flat"} href={`/product/${product.id}`}>
-                      {product.imageUrl
-                        ? <img src={productImageUrl(product.imageUrl, 500)} alt={product.name} loading="lazy" />
-                        : <span aria-hidden="true">{product.emoji}</span>}
-                      {(product.stock ?? 0) <= 0
-                        ? <span className="sf-card-soldout">Sold out</span>
-                        : off > 0 && <span className="sf-card-off">{off}% OFF</span>}
-                    </Link>
-                    <div className="sf-card-body">
-                      <span className="sf-card-source">
-                        {product.sellerVerified ? "✔ " : ""}
-                        {product.sellerName || product.category}
+            <div className="p-vendors">
+              {vendorCards.map(({ seller, items, off }) => (
+                <Link key={seller.id} className="p-vendor" href={`/store/${seller.id}`}>
+                  <span className="p-vendor-top">
+                    <span className="p-vendor-mark" aria-hidden="true">
+                      {seller.logoUrl
+                        ? <img src={seller.logoUrl} alt="" loading="lazy" />
+                        : sellerName(seller).slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="p-vendor-name">
+                      <b>{sellerName(seller)}</b>
+                      <small>
+                        {seller.verificationStatus === "approved" && (
+                          <svg viewBox="0 0 24 24" aria-label="Verified" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" fill="currentColor" />
+                            <path d="m8 12.3 2.6 2.6L16 9.5" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                        {sellerRoleLabels[seller.role ?? ""] ?? "Vendor"}
+                        {seller.city || seller.region ? ` · ${seller.city || seller.region}` : ""}
+                      </small>
+                    </span>
+                  </span>
+                  <span className="p-vendor-strip">
+                    {items.slice(0, 3).map((product) => (
+                      <span key={product.id} className={product.imageUrl ? "p-vendor-thumb" : "p-vendor-thumb is-flat"} aria-hidden="true">
+                        {product.imageUrl
+                          ? <img src={productImageUrl(product.imageUrl, 240)} alt="" loading="lazy" />
+                          : product.emoji}
                       </span>
-                      <Link className="sf-card-title" href={`/product/${product.id}`}>{product.name}</Link>
-                      <div className="sf-card-price">
-                        <strong>{formatMarketMoney(product.price, product.currency)}</strong>
-                        {product.oldPrice && <del>{formatMarketMoney(product.oldPrice, product.currency)}</del>}
-                      </div>
-                      <button
-                        type="button"
-                        className="sf-card-add"
-                        disabled={(product.stock ?? 0) <= 0}
-                        onClick={() => add(product)}
-                      >
-                        {(product.stock ?? 0) <= 0 ? "Sold out" : "Add to cart"}
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      className={saved ? "sf-card-save is-on" : "sf-card-save"}
-                      aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
-                      aria-pressed={saved}
-                      onClick={() => toggleSave(product)}
-                    >♥</button>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="sf-empty-state">Sellers are adding their first listings. Check back shortly.</div>
-          )}
-        </section>
-
-        <section className="sf-section">
-          <div className="sf-section-head">
-            <h2>Shop from <em>top categories</em></h2>
-            <Link className="sf-more" href="/categories">View all</Link>
-          </div>
-          <div className="sf-circles">
-            {categories.slice(0, 6).map((category, index) => (
-              <Link
-                key={category.name}
-                className={index === 0 ? "sf-circle is-active" : "sf-circle"}
-                href={`/shop?category=${encodeURIComponent(category.name)}`}
-              >
-                <span className="sf-circle-art" aria-hidden="true">
-                  {categoryIcons[category.name] ?? "🧺"}
-                </span>
-                <b>{category.name}</b>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {sellers.length > 0 && (
-          <section className="sf-section">
-            <div className="sf-section-head">
-              <h2>Top <em>vendors and suppliers</em></h2>
-              <Link className="sf-more" href="/shop">View all</Link>
-            </div>
-            <div className="sf-vendors">
-              {vendorCards.map(({ seller, product, count, off }, index) => (
-                <Link key={seller.id} className={`sf-vendor-card tone-${index + 1}`} href={`/store/${seller.id}`}>
-                  <span className="sf-vendor-tag">{sellerName(seller).slice(0, 14)}</span>
-                  <span className="sf-vendor-art" aria-hidden="true">
-                    {product?.imageUrl
-                      ? <img src={productImageUrl(product.imageUrl, 500)} alt="" />
-                      : <span className="sf-vendor-emoji">{product?.emoji ?? "🏪"}</span>}
+                    ))}
+                    {items.length === 0 && [0, 1, 2].map((index) => <span key={index} className="p-vendor-thumb is-flat" aria-hidden="true">🏪</span>)}
                   </span>
-                  <span className="sf-vendor-off">{off > 0 ? `Up to ${off}% OFF` : "Fresh in store"}</span>
-                  <span className="sf-vendor-count">{count} {count === 1 ? "product" : "products"} · {seller.city || seller.region || "Nigeria"}</span>
+                  <span className="p-vendor-foot">
+                    <span>{items.length} {items.length === 1 ? "product" : "products"}{off > 0 && <> · up to <em>{off}% off</em></>}</span>
+                    <span className="p-vendor-go">Visit store →</span>
+                  </span>
                 </Link>
               ))}
             </div>
           </section>
         )}
 
-        {frequently.length > 0 && (
-          <section className="sf-section">
-            <div className="sf-section-head">
-              <h2>Frequently <em>bought together</em></h2>
-              <Link className="sf-more" href="/shop">View all</Link>
+        {recommended.length > 0 && (
+          <section className="sf-sec">
+            <div className="sf-sec-head">
+              <div className="sf-sec-copy">
+                <span className="sf-sec-kicker">Based on what you browsed</span>
+                <h2>Recommended <em>for you</em></h2>
+              </div>
+              <div className="sf-sec-side">
+                <Link className="sf-sec-link" href="/favorites">Your wishlist <span aria-hidden="true">→</span></Link>
+              </div>
             </div>
-            <div className="sf-rail">
-              {frequently.map((product) => {
-                const off = discountPercent(product);
-                const saved = favourites.some((item) => item.id === product.id);
-                const soldOut = (product.stock ?? 0) <= 0;
-                return (
-                  <article key={product.id} className="sf-card sf-card-rich">
-                    <Link className={product.imageUrl ? "sf-card-art" : "sf-card-art is-flat"} href={`/product/${product.id}`}>
-                      {product.imageUrl
-                        ? <img src={productImageUrl(product.imageUrl, 400)} alt={product.name} loading="lazy" />
-                        : <span aria-hidden="true">{product.emoji}</span>}
-                      {off > 0 && <span className="sf-card-off">-{off}%</span>}
-                      {soldOut && <span className="sf-card-tag">Sold out</span>}
-                    </Link>
-                    <div className="sf-card-body">
-                      <Link className="sf-card-title" href={`/product/${product.id}`}>{product.name}</Link>
-                      <p className="sf-card-desc">{product.detail}</p>
-                      <div className="sf-card-price">
-                        <strong>{formatMarketMoney(product.price, product.currency)}</strong>
-                        {product.oldPrice && <del>{formatMarketMoney(product.oldPrice, product.currency)}</del>}
-                      </div>
-                      <div className="sf-card-actions">
-                        <button
-                          type="button"
-                          className={saved ? "sf-card-heart is-on" : "sf-card-heart"}
-                          aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
-                          aria-pressed={saved}
-                          onClick={() => toggleSave(product)}
-                        >♥</button>
-                        <button
-                          type="button"
-                          className="sf-card-buy"
-                          disabled={soldOut}
-                          onClick={() => add(product)}
-                        >{soldOut ? "Sold out" : "Add to cart"}</button>
-                        <Link className="sf-card-eye" href={`/product/${product.id}`} aria-label={`View ${product.name}`}>👁</Link>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="p-rail">{recommended.map((product) => tile(product, { variant: "rail" }))}</div>
+          </section>
+        )}
+
+        {recentlyViewed.length > 0 && (
+          <section className="sf-sec">
+            <div className="sf-sec-head">
+              <div className="sf-sec-copy">
+                <span className="sf-sec-kicker">Pick up where you left off</span>
+                <h2>Recently <em>viewed</em></h2>
+              </div>
+            </div>
+            <div className="p-rail">{recentlyViewed.map((product) => tile(product, { variant: "rail" }))}</div>
+          </section>
+        )}
+
+        {categories.length > 0 && (
+          <section className="sf-sec" style={{ paddingBottom: 40 }}>
+            <div className="sf-sec-head">
+              <div className="sf-sec-copy">
+                <span className="sf-sec-kicker">Popular right now</span>
+                <h2>What shoppers <em>search for</em></h2>
+              </div>
+            </div>
+            <div className="sf-tags">
+              {categories.map((category) => (
+                <Link key={category.name} className="sf-tag" href={`/shop?category=${encodeURIComponent(category.name)}`}>
+                  {category.name}
+                </Link>
+              ))}
+              <Link className="sf-tag" href="/shop?deals=1">Discount</Link>
+              <Link className="sf-tag" href="/pay-later">Pay later</Link>
             </div>
           </section>
         )}
 
-        <section className="sf-section" style={{ paddingBottom: 40 }}>
-          <div className="sf-section-head">              <h2>Top <em>offers for you</em></h2>
-          </div>
-          <div className="sf-promos">
-            <Link className="sf-promo" href="/pay-later">
-              <span><b>Pay Later</b><small>Buy now, pay over 30 days — no card needed</small></span>
-              <i aria-hidden="true">🗓</i>
-            </Link>
-            <Link className="sf-promo" href="/special-orders">
-              <span><b>Special &amp; event orders</b><small>Order ahead for weddings and events at a discount</small></span>
-              <i aria-hidden="true">🎉</i>
-            </Link>
-            <Link className="sf-promo" href="/shop?deals=1">
-              <span><b>All offers</b><small>Every discounted item in one place</small></span>
-              <i aria-hidden="true">%</i>
-            </Link>
-          </div>
-        </section>
+        {!loading && catalog.length === 0 && (
+          <section className="sf-sec" style={{ paddingBottom: 40 }}>
+            <div className="sf-empty-state">
+              {catalogError ? (
+                <>
+                  <p style={{ margin: "0 0 6px", fontWeight: 700, color: "var(--sf-ink)" }}>We couldn&rsquo;t load the shelves</p>
+                  <p style={{ margin: "0 0 14px" }}>The shop could not reach the product catalogue just now. Try again — your basket and saved items are safe.</p>
+                  <button type="button" className="sf-more" onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }}>
+                    Try again
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p style={{ margin: "0 0 6px", fontWeight: 700, color: "var(--sf-ink)" }}>The shelves are being stocked</p>
+                  <p style={{ margin: "0 0 14px" }}>Verified sellers are adding their first listings right now. Browse the aisles, or check back in a moment.</p>
+                  <Link className="sf-more" href="/categories">Browse categories</Link>
+                </>
+              )}
+            </div>
+          </section>
+        )}
 
-        {notice && <p className="sf-auth-note" role="status" style={{ paddingBottom: 16 }}>{notice}</p>}
+        <section className="sf-partners-band">
+          <TrustedPartners />
+        </section>
       </main>
       <ShopFooter />
+
+      {notice && (
+        <div className="sf-toast" role="status">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" /><path d="m7.5 12.3 3 3L16.5 9.4" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {quickView && (
+        <ProductDetailsDialog
+          product={quickView}
+          onClose={() => setQuickView(null)}
+          saved={isSaved(quickView)}
+          onAdd={add}
+          onToggleSave={toggleSave}
+        />
+      )}
     </div>
   );
 }

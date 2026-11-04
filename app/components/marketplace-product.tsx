@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type MarketplaceProduct = {
   id: string;
@@ -131,6 +131,116 @@ export function ProductCard({
   );
 }
 
+type TrustedPartner = {
+  id: string;
+  name: string;
+  location: string;
+  logoUrl: string;
+  emoji: string;
+  mark?: string;
+  route: string;
+};
+
+/** The checkout partners this storefront already advertises on product pages. */
+const paymentPartners: TrustedPartner[] = [
+  { id: "paystack", name: "Paystack", location: "Card & transfer", logoUrl: "", emoji: "", mark: "Ps", route: "" },
+  { id: "verve", name: "Verve", location: "Card payments", logoUrl: "", emoji: "", mark: "Vv", route: "" },
+  { id: "visa", name: "Visa", location: "Card payments", logoUrl: "", emoji: "", mark: "Vi", route: "" },
+  { id: "mastercard", name: "Mastercard", location: "Card payments", logoUrl: "", emoji: "", mark: "Mc", route: "" },
+];
+
+/**
+ * The approved-seller directory, fetched once per visit and shared by every
+ * product panel that shows the partner strip.
+ */
+let partnerPromise: Promise<TrustedPartner[]> | null = null;
+
+function readPartners(): Promise<TrustedPartner[]> {
+  if (partnerPromise) return partnerPromise;
+  const roles = ["supplier", "vendor", "producer", "manufacturer"];
+  partnerPromise = Promise.allSettled(roles.map(async (role) => {
+    const response = await fetch(`/api/marketplace/sellers?role=${role}`, { signal: AbortSignal.timeout(20_000) });
+    if (!response.ok) return [] as TrustedPartner[];
+    const data = await response.json() as { sellers?: unknown };
+    if (!Array.isArray(data.sellers)) return [] as TrustedPartner[];
+    return (data.sellers as Array<Record<string, unknown>>).map((seller) => ({
+      id: String(seller.id ?? ""),
+      name: String(seller.businessName ?? seller.name ?? "Sure Foodz seller"),
+      location: String(seller.detail ?? ""),
+      logoUrl: String(seller.logoUrl ?? ""),
+      emoji: String(seller.emoji ?? "🏪"),
+      route: String(seller.route ?? "/shop"),
+    }));
+  })).then((results) => results
+    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+    .filter((partner, index, all) => partner.id && all.findIndex((item) => item.id === partner.id) === index))
+    .catch(() => []);
+  return partnerPromise;
+}
+
+export function TrustedPartners() {
+  const [sellers, setSellers] = useState<TrustedPartner[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void readPartners().then((list) => { if (active) setSellers(list); });
+    return () => { active = false; };
+  }, []);
+
+  const base = sellers
+    ? [...sellers.slice(0, 5), ...paymentPartners]
+    : Array.from({ length: 4 }, (_, index) => ({
+      id: `loading-${index}`, name: "", location: "", logoUrl: "", emoji: "", mark: "", route: "",
+    }));
+  // Repeat the row so a short list still fills the track on wide screens.
+  const repetitions = Math.max(1, Math.ceil(10 / base.length));
+  const chips = sellers ? Array.from({ length: repetitions }, () => base).flat() : base;
+
+  return (
+    <section className="pm-partners" aria-label="Trusted partners on Sure Foodz" aria-busy={!sellers}>
+      <div className="pm-partners-head">
+        <strong>Trusted partners</strong>
+        <small>{sellers ? "Verified sellers and payment partners" : "Loading trusted partners…"}</small>
+      </div>
+      <div className="pm-partners-viewport">
+        <div className="pm-partners-track" style={{ animationDuration: `${Math.max(20, chips.length * 3)}s` }}>
+          {[0, 1].map((copy) => (
+            <div
+              className="pm-partners-group"
+              key={copy}
+              aria-hidden={copy === 1 ? true : undefined}
+            >
+              {chips.map((partner, index) => {
+                const inner = (
+                  <>
+                    <span className="pm-partner-mark" aria-hidden="true">
+                      {partner.logoUrl
+                        ? <img src={productImageUrl(partner.logoUrl, 96)} alt="" />
+                        : partner.mark ? <em>{partner.mark}</em> : partner.emoji || null}
+                    </span>
+                    <span className="pm-partner-copy">
+                      <b>{partner.name || "\u00a0"}</b>
+                      <small>{partner.location || (sellers ? "Sure Foodz" : "\u00a0")}</small>
+                    </span>
+                  </>
+                );
+                const key = `${copy}-${index}-${partner.id}`;
+                if (!sellers) return <span key={key} className="pm-partner is-loading">{inner}</span>;
+                if (!partner.route) return <span key={key} className="pm-partner">{inner}</span>;
+                return (
+                  <Link key={key} className="pm-partner" href={partner.route} tabIndex={copy === 1 ? -1 : undefined}>
+                    {inner}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function eventOrderHref(product: { name: string }, quantity: number) {
   return `/special-orders?items=${encodeURIComponent(`${quantity} × ${product.name}`)}`;
 }
@@ -163,6 +273,15 @@ export function ProductDetailsDialog({
   const [quantity, setQuantity] = useState(1);
   const roleLabel = sellerRoleLabels[product.sellerRole ?? ""] ?? "Seller";
   const maxQuantity = product.liveListing ? Math.max(1, product.stock ?? 0) : 99;
+  // The seller block is built from the listing itself, so it never shows a
+  // placeholder tagline or a role the API did not give us.
+  const sellerName = product.sellerName || "Sure Foodz seller";
+  const sellerPlace = product.sellerLocation
+    || [product.sellerCity, product.sellerRegion].filter(Boolean).join(", ");
+  const sellerMeta = [
+    `${product.sellerVerified ? "Verified" : "Approved"} ${roleLabel.toLowerCase()}`,
+    sellerPlace,
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className="product-modal-layer">
@@ -177,11 +296,15 @@ export function ProductDetailsDialog({
         </div>
         <div className="product-modal-body">
           <div className="pm-seller-head">
-            <span className="pm-seller-mark" aria-hidden="true">🌿</span>
+            <span className="pm-seller-mark" aria-hidden="true">
+              {product.sellerLogoUrl
+                ? <img src={productImageUrl(product.sellerLogoUrl, 96)} alt="" />
+                : "🌿"}
+            </span>
             <span className="pm-seller-name">
-              <strong>{product.sellerName || "Sure Foodz"}</strong>
-              {product.sellerVerified && <i aria-label="Verified">✔</i>}
-              <small>Quality products, always.</small>
+              <strong>{sellerName}</strong>
+              {product.sellerVerified && <i aria-label="Verified seller">✔</i>}
+              <small>{sellerMeta}</small>
             </span>
             <span className="pm-verified-pill">
               🛡 {product.sellerVerified ? "Verified" : "Approved"} {roleLabel}
@@ -198,7 +321,7 @@ export function ProductDetailsDialog({
             <h3>Product Details</h3>
             <p>{product.detail || "This seller has not added a description for this item yet."}</p>
             <dl className="product-modal-specs">
-              <div><dt>{roleLabel}</dt><dd>{product.sellerName || "Sure Foodz seller"}{product.sellerVerified && <span className="verified-seller-badge">Verified {roleLabel.toLowerCase()}</span>}</dd></div>
+              <div><dt>{roleLabel}</dt><dd>{sellerName}{<span className="verified-seller-badge">{product.sellerVerified ? "Verified" : "Approved"} {roleLabel.toLowerCase()}</span>}</dd></div>
               <div><dt>Location</dt><dd>{product.sellerLocation || "Location not provided"}</dd></div>
               <div><dt>Product source</dt><dd>{productSourceLabels[product.productKind ?? ""] ?? "Supplier"}</dd></div>
               <div><dt>Category</dt><dd>{product.category}</dd></div>
@@ -210,8 +333,8 @@ export function ProductDetailsDialog({
             <div className="product-modal-store-bar">
               <span className="pm-store-mark" aria-hidden="true">🏪</span>
               <span className="pm-store-copy">
-                <b>Verified {roleLabel.toLowerCase()}</b>
-                <small>{product.sellerName || "Sure Foodz seller"}{product.sellerLocation ? ` · ${product.sellerLocation}` : ""}</small>
+                <b>{product.sellerVerified ? "Verified" : "Approved"} {roleLabel.toLowerCase()}</b>
+                <small>{sellerName}{sellerPlace ? ` · ${sellerPlace}` : ""}</small>
               </span>
               <Link className="pm-store-button" href={`/store/${product.sellerId}`}>Open store →</Link>
             </div>
@@ -332,6 +455,29 @@ export function readFavourites(): MarketplaceProduct[] {
     return Array.isArray(parsed) ? (parsed as MarketplaceProduct[]).filter((item) => item && typeof item.id === "string") : [];
   } catch {
     return [];
+  }
+}
+
+const RECENT_KEY = "surefood-recently-viewed";
+
+/** Ids of the last products opened, newest first — the home page re-reads them from the catalogue. */
+export function readRecentlyViewed(): string[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function rememberViewed(productId: string) {
+  if (!productId) return;
+  try {
+    const next = [productId, ...readRecentlyViewed().filter((id) => id !== productId)].slice(0, 12);
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    /* storage can be blocked; browsing still works */
   }
 }
 

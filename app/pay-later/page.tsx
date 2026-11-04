@@ -20,6 +20,7 @@ import {
   type PayLaterStatus,
 } from "@/lib/requests";
 import "@/app/services.css";
+import "@/app/services-premium.css";
 
 type ApplicationSummary = {
   reference: string;
@@ -233,39 +234,49 @@ export default function PayLaterPage() {
           <span className="is-on">Pay later</span>
         </nav>
 
-        <div className="svc-head">
-          <Link href={user ? "/account" : "/"} className="svc-back" aria-label="Back">←</Link>
-          <button
-            type="button"
-            className="svc-share"
-            aria-label="Share this page"
-            onClick={() => {
-              const url = window.location.href;
-              if (navigator.share) void navigator.share({ title: "Sure Foodz Pay Later", url }).catch(() => {});
-              else void navigator.clipboard?.writeText(url);
-            }}
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="18" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.8" />
-              <circle cx="6" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
-              <circle cx="18" cy="19" r="2.6" stroke="currentColor" strokeWidth="1.8" />
-              <path d="m8.5 10.8 7-4.2M8.5 13.2l7 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
+        <header className="svc-hero">
+          <div className="svc-hero-copy">
+            <div className="svc-head">
+              <Link href={user ? "/account" : "/"} className="svc-back" aria-label="Back">←</Link>
+              <button
+                type="button"
+                className="svc-share"
+                aria-label="Share this page"
+                onClick={() => {
+                  const url = window.location.href;
+                  if (navigator.share) void navigator.share({ title: "Sure Foodz Pay Later", url }).catch(() => {});
+                  else void navigator.clipboard?.writeText(url);
+                }}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="18" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="6" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="18" cy="19" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="m8.5 10.8 7-4.2M8.5 13.2l7 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
 
-        <span className="svc-kicker">Buy now · Pay later</span>
-        <h1 className="svc-title">Pay Later</h1>
-        <p className="svc-lede">
-          A small food credit line for businesses and salaried workers — no bank card, no collateral. You show us who you
-          are, we check your business or employment, speak to two people who can vouch for you, then you shop on a
-          low-interest repayment plan.
-        </p>
-        <ul className="svc-points">
-          <li>No card required</li>
-          <li>Business owners and employees</li>
-          <li>Two referees, checked before approval</li>
-        </ul>
+            <span className="svc-kicker">Buy now · Pay later</span>
+            <h1 className="svc-title">Pay Later</h1>
+            <p className="svc-lede">
+              A small food credit line for businesses and salaried workers — no bank card, no collateral. You show us who you
+              are, we check your business or employment, speak to two people who can vouch for you, then you shop on a
+              low-interest repayment plan.
+            </p>
+            <ul className="svc-points">
+              <li>No card required</li>
+              <li>Business owners and employees</li>
+              <li>Two referees, checked before approval</li>
+            </ul>
+          </div>
+
+          <aside className="svc-facts" aria-label="Pay Later at a glance">
+            <div className="svc-fact"><b>{payLaterSteps.length}</b><small>steps from application to a decision</small></div>
+            <div className="svc-fact"><b>{referees.length}</b><small>referees we speak to before approval</small></div>
+            <div className="svc-fact"><b>{requiredDocuments.length}</b><small>documents required for your profile</small></div>
+          </aside>
+        </header>
 
         <div className="svc-layout">
           <div className="svc-main">
@@ -451,13 +462,18 @@ export default function PayLaterPage() {
                         Referees must be reachable and must know you — they confirm who you are before the plan is approved.
                         They cannot be the same person.
                       </p>
-                      {referees.map((referee, index) => (
-                        <div className="svc-row" key={index}>
-                          <label className="svc-field"><span>Referee {index + 1} name</span><input value={referee.name} onChange={(event) => updateReferee(index, "name", event.target.value)} required minLength={2} maxLength={120} /></label>
-                          <label className="svc-field"><span>Referee {index + 1} phone</span><input type="tel" value={referee.phone} onChange={(event) => updateReferee(index, "phone", event.target.value)} required placeholder="0803 000 0000" /></label>
-                          <label className="svc-field"><span>How do they know you?</span><input value={referee.relationship} onChange={(event) => updateReferee(index, "relationship", event.target.value)} required minLength={2} maxLength={60} placeholder="Business partner, colleague, neighbour…" /></label>
-                        </div>
-                      ))}
+                      <div className="svc-referees">
+                        {referees.map((referee, index) => (
+                          <div className="svc-referee" key={index}>
+                            <h3>Referee {index + 1}</h3>
+                            <div className="svc-row">
+                              <label className="svc-field"><span>Name</span><input aria-label={`Referee ${index + 1} name`} value={referee.name} onChange={(event) => updateReferee(index, "name", event.target.value)} required minLength={2} maxLength={120} /></label>
+                              <label className="svc-field"><span>Phone number</span><input aria-label={`Referee ${index + 1} phone`} type="tel" value={referee.phone} onChange={(event) => updateReferee(index, "phone", event.target.value)} required placeholder="0803 000 0000" /></label>
+                              <label className="svc-field"><span>How do they know you?</span><input aria-label={`Referee ${index + 1} relationship`} value={referee.relationship} onChange={(event) => updateReferee(index, "relationship", event.target.value)} required minLength={2} maxLength={60} placeholder="Business partner, colleague, neighbour…" /></label>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </fieldset>
 
                     <label className="svc-consent">

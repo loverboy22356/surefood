@@ -4,21 +4,16 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ProductDetailsDialog,
   apiProductToListing,
-  formatMarketMoney,
-  productImageUrl,
   readFavourites,
   writeFavourites,
   type ApiProduct,
   type MarketplaceProduct,
 } from "@/app/components/marketplace-product";
+import { ProductTile, ProductTileSkeleton, productDiscount } from "@/app/components/product-tile";
 import { addItemToBasket } from "@/app/components/cart-client";
 import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
-
-function discountPercent(product: MarketplaceProduct) {
-  if (!product.oldPrice || product.oldPrice <= product.price) return 0;
-  return Math.round((1 - product.price / product.oldPrice) * 100);
-}
 
 function announceBasketChange() {
   window.dispatchEvent(new Event("surefood-cart-changed"));
@@ -40,6 +35,8 @@ export function ShopBrowser() {
   const [location, setLocation] = useState(params.get("state") ?? "");
   const [favourites, setFavourites] = useState<MarketplaceProduct[]>([]);
   const [notice, setNotice] = useState("");
+  const [chosenSellers, setChosenSellers] = useState<string[]>([]);
+  const [quickView, setQuickView] = useState<MarketplaceProduct | null>(null);
 
   useEffect(() => {
     setCategories(params.getAll("category").filter(Boolean));
@@ -85,7 +82,8 @@ export function ShopBrowser() {
     const chosen = location.trim().toLowerCase();
     let items = catalog.filter((product) => {
       if (categories.length && !categories.includes(product.category)) return false;
-      if (dealsOnly && discountPercent(product) === 0) return false;
+      if (dealsOnly && productDiscount(product) === 0) return false;
+      if (chosenSellers.length && !chosenSellers.includes(product.sellerName ?? "")) return false;
       if (inStock && (product.stock ?? 0) <= 0) return false;
       if (minPrice && product.price < minimum) return false;
       if (maxPrice && product.price > maximum) return false;
@@ -95,9 +93,9 @@ export function ShopBrowser() {
     });
     if (sort === "price-asc") items = [...items].sort((a, b) => a.price - b.price);
     if (sort === "price-desc") items = [...items].sort((a, b) => b.price - a.price);
-    if (sort === "discount") items = [...items].sort((a, b) => discountPercent(b) - discountPercent(a));
+    if (sort === "discount") items = [...items].sort((a, b) => productDiscount(b) - productDiscount(a));
     return items;
-  }, [catalog, categories, dealsOnly, inStock, location, maxPrice, minPrice, sort]);
+  }, [catalog, categories, chosenSellers, dealsOnly, inStock, location, maxPrice, minPrice, sort]);
 
   function toggleCategory(name: string) {
     setCategories((current) => current.includes(name)
@@ -120,8 +118,8 @@ export function ShopBrowser() {
     writeFavourites(next);
   }
 
-  function addToCart(product: MarketplaceProduct) {
-    const result = addItemToBasket(product);
+  function addToCart(product: MarketplaceProduct, quantity = 1) {
+    const result = addItemToBasket(product, quantity);
     setNotice(result.message);
     if (result.ok) announceBasketChange();
   }
@@ -158,7 +156,13 @@ export function ShopBrowser() {
               <div className="sf-filter-body">
                 {sellers.map((name) => (
                   <label key={name} className="sf-check">
-                    <input type="checkbox" readOnly checked={false} onChange={() => {}} aria-label={name} />
+                    <input
+                      type="checkbox"
+                      checked={chosenSellers.includes(name)}
+                      onChange={() => setChosenSellers((current) => current.includes(name)
+                        ? current.filter((item) => item !== name)
+                        : [...current, name])}
+                    />
                     {name}
                   </label>
                 ))}
@@ -227,58 +231,24 @@ export function ShopBrowser() {
               </select>
             </div>
 
-            {notice && <p className="sf-auth-note" role="status">{notice}</p>}
             {error && <p className="sf-auth-error" role="alert">{error}</p>}
 
             {loading ? (
               <div className="sf-grid" aria-hidden="true">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="sf-card" style={{ height: 320, opacity: .45 }} />
-                ))}
+                <ProductTileSkeleton count={8} />
               </div>
             ) : visible.length ? (
               <div className="sf-grid">
-                {visible.map((product) => {
-                  const off = discountPercent(product);
-                  const saved = favourites.some((item) => item.id === product.id);
-                  return (
-                    <article key={product.id} className="sf-card">
-                      <Link className={product.imageUrl ? "sf-card-art" : "sf-card-art is-flat"} href={`/product/${product.id}`}>
-                        {product.imageUrl
-                          ? <img src={productImageUrl(product.imageUrl, 500)} alt={product.name} loading="lazy" />
-                          : <span aria-hidden="true">{product.emoji}</span>}
-                        {off > 0 && <span className="sf-card-off">-{off}%</span>}
-                        {product.tag && <span className="sf-card-tag">{product.tag}</span>}
-                      </Link>
-                      <div className="sf-card-body">
-                        <span className="sf-card-source">
-                          {product.sellerVerified ? "✔ " : ""}
-                          {product.sellerRole === "supplier" ? "Supplier" : "Vendor"} · {product.sellerCity || "Nigeria"}
-                        </span>
-                        <Link className="sf-card-title" href={`/product/${product.id}`}>{product.name}</Link>
-                        <div className="sf-card-price">
-                          <strong>{formatMarketMoney(product.price, product.currency)}</strong>
-                          {product.oldPrice && <del>{formatMarketMoney(product.oldPrice, product.currency)}</del>}
-                        </div>
-                        <button
-                          type="button"
-                          className="sf-card-add"
-                          disabled={(product.stock ?? 0) <= 0}
-                          onClick={() => addToCart(product)}
-                        >
-                          {(product.stock ?? 0) <= 0 ? "Out of stock" : "+ Add to Cart"}
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        className={saved ? "sf-card-save is-on" : "sf-card-save"}
-                        aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
-                        aria-pressed={saved}
-                        onClick={() => toggleSave(product)}
-                      >♥</button>
-                    </article>
-                  );
-                })}
+                {visible.map((product) => (
+                  <ProductTile
+                    key={product.id}
+                    product={product}
+                    saved={favourites.some((item) => item.id === product.id)}
+                    onToggleSave={toggleSave}
+                    onAdd={addToCart}
+                    onQuickView={setQuickView}
+                  />
+                ))}
               </div>
             ) : (
               <div className="sf-empty-state">
@@ -286,7 +256,7 @@ export function ShopBrowser() {
                 <button
                   type="button"
                   className="sf-more"
-                  onClick={() => { setCategories([]); setDealsOnly(false); setInStock(false); setMinPrice(""); setMaxPrice(""); clearLocation(); }}
+                  onClick={() => { setCategories([]); setChosenSellers([]); setDealsOnly(false); setInStock(false); setMinPrice(""); setMaxPrice(""); clearLocation(); }}
                 >
                   Clear filters
                 </button>
@@ -296,6 +266,23 @@ export function ShopBrowser() {
         </div>
       </main>
       <ShopFooter />
+
+      {notice && (
+        <div className="sf-toast" role="status">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" /><path d="m7.5 12.3 3 3L16.5 9.4" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {quickView && (
+        <ProductDetailsDialog
+          product={quickView}
+          onClose={() => setQuickView(null)}
+          saved={favourites.some((item) => item.id === quickView.id)}
+          onAdd={(product, quantity) => addToCart(product, quantity)}
+          onToggleSave={toggleSave}
+        />
+      )}
     </div>
   );
 }

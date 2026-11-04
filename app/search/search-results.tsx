@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ProductDetailsDialog,
   apiProductToListing,
-  formatMarketMoney,
   matchesSearch,
-  productImageUrl,
   readFavourites,
   writeFavourites,
   type ApiProduct,
   type MarketplaceProduct,
 } from "@/app/components/marketplace-product";
+import { ProductTile, ProductTileSkeleton, productDiscount } from "@/app/components/product-tile";
 import { addItemToBasket } from "@/app/components/cart-client";
 import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
 
@@ -37,11 +37,6 @@ function productLocationLabel(product: MarketplaceProduct) {
   return product.sellerLocation || [product.sellerCity, product.sellerRegion].filter(Boolean).join(", ");
 }
 
-function discountPercent(product: MarketplaceProduct) {
-  if (!product.oldPrice || product.oldPrice <= product.price) return 0;
-  return Math.round((1 - product.price / product.oldPrice) * 100);
-}
-
 export function SearchResults({ initialQuery }: { initialQuery: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [term, setTerm] = useState(initialQuery.trim());
@@ -55,6 +50,7 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
   const [sort, setSort] = useState("relevance");
   const [favourites, setFavourites] = useState<MarketplaceProduct[]>([]);
   const [notice, setNotice] = useState("");
+  const [quickView, setQuickView] = useState<MarketplaceProduct | null>(null);
   const [noticeTone, setNoticeTone] = useState<"ok" | "warn">("ok");
 
   useEffect(() => {
@@ -308,59 +304,24 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
           </aside>
 
           <section aria-label="Search results">
-            {notice && <p className="sf-auth-note" role="status">{notice}</p>}
             {error && <p className="sf-auth-error" role="alert">{error}</p>}
 
             {loading ? (
               <div className="sf-grid" aria-hidden="true">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="sf-card" style={{ height: 320, opacity: .45 }} />
-                ))}
+                <ProductTileSkeleton count={8} />
               </div>
             ) : matches.length ? (
               <div className="sf-grid">
-                {matches.map((product) => {
-                  const off = discountPercent(product);
-                  const saved = favouriteIds.has(product.id);
-                  return (
-                    <article key={product.id} className="sf-card">
-                      <Link className={product.imageUrl ? "sf-card-art" : "sf-card-art is-flat"} href={`/product/${product.id}`}>
-                        {product.imageUrl
-                          ? <img src={productImageUrl(product.imageUrl, 500)} alt={product.name} loading="lazy" />
-                          : <span aria-hidden="true">{product.emoji}</span>}
-                        {off > 0 && <span className="sf-card-off">-{off}%</span>}
-                        {product.tag && <span className="sf-card-tag">{product.tag}</span>}
-                      </Link>
-                      <div className="sf-card-body">
-                        <span className="sf-card-source">
-                          {product.sellerVerified ? "✔ " : ""}
-                          {product.sellerRole === "supplier" ? "Supplier" : "Vendor"}
-                          {product.sellerCity ? ` · ${product.sellerCity}` : ""}
-                        </span>
-                        <Link className="sf-card-title" href={`/product/${product.id}`}>{product.name}</Link>
-                        <div className="sf-card-price">
-                          <strong>{formatMarketMoney(product.price, product.currency)}</strong>
-                          {product.oldPrice && <del>{formatMarketMoney(product.oldPrice, product.currency)}</del>}
-                        </div>
-                        <button
-                          type="button"
-                          className="sf-card-add"
-                          disabled={(product.stock ?? 0) <= 0}
-                          onClick={() => addToBasket(product)}
-                        >
-                          {(product.stock ?? 0) <= 0 ? "Out of stock" : "+ Add to Cart"}
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        className={saved ? "sf-card-save is-on" : "sf-card-save"}
-                        aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
-                        aria-pressed={saved}
-                        onClick={() => toggleFavourite(product)}
-                      >♥</button>
-                    </article>
-                  );
-                })}
+                {matches.map((product) => (
+                  <ProductTile
+                    key={product.id}
+                    product={product}
+                    saved={favouriteIds.has(product.id)}
+                    onToggleSave={toggleFavourite}
+                    onAdd={addToBasket}
+                    onQuickView={setQuickView}
+                  />
+                ))}
               </div>
             ) : (
               <div className="sf-empty-state">
@@ -378,6 +339,23 @@ export function SearchResults({ initialQuery }: { initialQuery: string }) {
       </main>
 
       <ShopFooter />
+
+      {notice && (
+        <div className={noticeTone === "warn" ? "sf-toast is-warn" : "sf-toast"} role="status">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" /><path d="m7.5 12.3 3 3L16.5 9.4" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {quickView && (
+        <ProductDetailsDialog
+          product={quickView}
+          onClose={() => setQuickView(null)}
+          saved={favouriteIds.has(quickView.id)}
+          onAdd={addToBasket}
+          onToggleSave={toggleFavourite}
+        />
+      )}
     </div>
   );
 }

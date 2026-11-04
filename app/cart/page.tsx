@@ -10,6 +10,7 @@ import {
   type MarketplaceProduct,
 } from "@/app/components/marketplace-product";
 import { apiProductToListing, type ApiProduct } from "@/app/components/marketplace-product";
+import { ProductTile } from "@/app/components/product-tile";
 import {
   addItemToBasket,
   cartItemCount,
@@ -58,8 +59,8 @@ export default function CartPage() {
     persist(lines.filter((line) => line.product.id !== productId));
   }
 
-  function add(product: MarketplaceProduct) {
-    addItemToBasket(product);
+  function add(product: MarketplaceProduct, quantity = 1) {
+    addItemToBasket(product, quantity);
     persist(readCartLines());
   }
 
@@ -157,54 +158,26 @@ export default function CartPage() {
         )}
 
         {extra.length > 0 && (
-          <section className="sf-section">
-            <div className="sf-section-head">
-              <h2>You might also like</h2>
-              <Link className="sf-more" href="/shop">View all</Link>
+          <section className="sf-sec">
+            <div className="sf-sec-head">
+              <div className="sf-sec-copy">
+                <span className="sf-sec-kicker">Complete your basket</span>
+                <h2>You might <em>also like</em></h2>
+              </div>
+              <div className="sf-sec-side">
+                <Link className="sf-sec-link" href="/shop">View all <span aria-hidden="true">→</span></Link>
+              </div>
             </div>
             <div className="sf-grid">
-              {extra.map((item) => {
-                const off = item.oldPrice && item.oldPrice > item.price
-                  ? Math.round(((item.oldPrice - item.price) / item.oldPrice) * 100)
-                  : 0;
-                const saved = favourites.some((entry) => entry.id === item.id);
-                const soldOut = (item.stock ?? 0) <= 0;
-                return (
-                  <article key={item.id} className="sf-card sf-card-rich">
-                    <Link className={item.imageUrl ? "sf-card-art" : "sf-card-art is-flat"} href={`/product/${item.id}`}>
-                      {item.imageUrl
-                        ? <img src={productImageUrl(item.imageUrl, 400)} alt={item.name} loading="lazy" />
-                        : <span aria-hidden="true">{item.emoji}</span>}
-                      {off > 0 && <span className="sf-card-off">-{off}%</span>}
-                      {soldOut && <span className="sf-card-tag">Sold out</span>}
-                    </Link>
-                    <div className="sf-card-body">
-                      <Link className="sf-card-title" href={`/product/${item.id}`}>{item.name}</Link>
-                      <p className="sf-card-desc">{item.detail}</p>
-                      <div className="sf-card-price">
-                        <strong>{formatMarketMoney(item.price, item.currency)}</strong>
-                        {item.oldPrice && <del>{formatMarketMoney(item.oldPrice, item.currency)}</del>}
-                      </div>
-                      <div className="sf-card-actions">
-                        <button
-                          type="button"
-                          className={saved ? "sf-card-heart is-on" : "sf-card-heart"}
-                          aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
-                          aria-pressed={saved}
-                          onClick={() => toggleSave(item)}
-                        >♥</button>
-                        <button
-                          type="button"
-                          className="sf-card-buy"
-                          disabled={soldOut}
-                          onClick={() => add(item)}
-                        >{soldOut ? "Sold out" : "Add to cart"}</button>
-                        <Link className="sf-card-eye" href={`/product/${item.id}`} aria-label={`View ${item.name}`}>👁</Link>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+              {extra.map((item) => (
+                <ProductTile
+                  key={item.id}
+                  product={item}
+                  saved={favourites.some((entry) => entry.id === item.id)}
+                  onToggleSave={toggleSave}
+                  onAdd={add}
+                />
+              ))}
             </div>
           </section>
         )}

@@ -11,6 +11,7 @@ import {
   type EventType,
 } from "@/lib/requests";
 import "@/app/services.css";
+import "@/app/services-premium.css";
 
 type Result = {
   reference: string;
@@ -88,38 +89,46 @@ export default function SpecialOrdersPage() {
           <span className="is-on">Special orders</span>
         </nav>
 
-        <div className="svc-head">
-          <Link href="/shop" className="svc-back" aria-label="Back to the shop">←</Link>
-          <button
-            type="button"
-            className="svc-share"
-            aria-label="Share this page"
-            onClick={() => {
-              const url = window.location.href;
-              if (navigator.share) void navigator.share({ title: "Sure Foodz event orders", url }).catch(() => {});
-              else void navigator.clipboard?.writeText(url);
-            }}
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="18" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.8" />
-              <circle cx="6" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
-              <circle cx="18" cy="19" r="2.6" stroke="currentColor" strokeWidth="1.8" />
-              <path d="m8.5 10.8 7-4.2M8.5 13.2l7 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
+        <header className="svc-hero">
+          <div className="svc-hero-copy">
+            <div className="svc-head">
+              <Link href="/shop" className="svc-back" aria-label="Back to the shop">←</Link>
+              <button
+                type="button"
+                className="svc-share"
+                aria-label="Share this page"
+                onClick={() => {
+                  const url = window.location.href;
+                  if (navigator.share) void navigator.share({ title: "Sure Foodz event orders", url }).catch(() => {});
+                  else void navigator.clipboard?.writeText(url);
+                }}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="18" cy="5" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="6" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="18" cy="19" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="m8.5 10.8 7-4.2M8.5 13.2l7 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
 
-        <span className="svc-kicker">Special &amp; event orders</span>
-        <h1 className="svc-title">Event orders</h1>
-        <p className="svc-lede">
-          Weddings, birthdays, corporate lunches, festivals — send us the list ahead of the date. The earlier you order,
-          the deeper the planning discount we can give you, so you can pay for the food before the day itself.
-        </p>
-        <ul className="svc-points">
-          <li>Order weeks or months ahead</li>
-          <li>Discount band set by your lead time</li>
-          <li>Everything confirmed in writing before you pay</li>
-        </ul>
+            <span className="svc-kicker">Special &amp; event orders</span>
+            <h1 className="svc-title">Event orders</h1>
+            <p className="svc-lede">
+              Weddings, birthdays, corporate lunches, festivals — send us the list ahead of the date. The earlier you order,
+              the deeper the planning discount we can give you, so you can pay for the food before the day itself.
+            </p>
+            <ul className="svc-points">
+              <li>Order weeks or months ahead</li>
+              <li>Discount band set by your lead time</li>
+              <li>Everything confirmed in writing before you pay</li>
+            </ul>
+          </div>
+
+          <div className="svc-hero-art" aria-hidden="true">
+            <img src="/images/hero-produce.webp" alt="" />
+          </div>
+        </header>
 
         <div className="svc-layout">
           <div className="svc-main">
@@ -232,6 +241,7 @@ export default function SpecialOrdersPage() {
                   <li className={tier?.id === band.id ? "svc-tier is-active" : "svc-tier"} key={band.id}>
                     <b>{band.label}</b>
                     <small>{band.detail}</small>
+                    <em>{band.minDays === 0 ? "Any lead time" : `${band.minDays}+ days ahead`}</em>
                   </li>
                 ))}
               </ul>
