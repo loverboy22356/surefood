@@ -563,6 +563,50 @@
 .acct-order-ready { border: 1px solid #e6e6ea; background: #f2f6fe; color: #0a4ac2; }
 .acct-order-paid { margin: 8px 0 0; color: #15803d; font-size: 13px; font-weight: 700; }
 
+.acct-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px dashed #eef0f4;
+}
+
+.acct-order-repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid #d7e3fb;
+  border-radius: 999px;
+  background: #f2f6fe;
+  color: #0b53d6;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.acct-order-repeat:hover:not(:disabled) {
+  background: #e7efff;
+  border-color: #b9d1f8;
+  transform: translateY(-1px);
+}
+
+.acct-order-repeat:disabled { cursor: wait; opacity: .7; transform: none; }
+.acct-order-repeat svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.acct-order-link { font-size: 12px; font-weight: 700; color: #6f7280; text-decoration: none; }
+.acct-order-link:hover { color: #0b53d6; }
+
+html[data-theme="dark"] .acct-order-actions { border-top-color: #26262e; }
+html[data-theme="dark"] .acct-order-repeat { border-color: #24365c; background: #131c2d; color: #9dbcfb; }
+html[data-theme="dark"] .acct-order-repeat:hover:not(:disabled) { background: #182339; border-color: #34507f; }
+html[data-theme="dark"] .acct-order-link { color: #9b9daa; }
+
 /* Settings --------------------------------------------------------------- */
 
 .acct-settings { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }

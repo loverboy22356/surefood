@@ -26,11 +26,22 @@ export default function CartPage() {
   const [suggestions, setSuggestions] = useState<MarketplaceProduct[]>([]);
   const [favourites, setFavourites] = useState<MarketplaceProduct[]>([]);
   const [ready, setReady] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     setLines(readCartLines());
     setFavourites(readFavourites());
     setReady(true);
+    /* A repeat order leaves its summary here before navigating to the basket. */
+    try {
+      const pending = window.sessionStorage.getItem("surefood-cart-notice");
+      if (pending) {
+        setNotice(pending);
+        window.sessionStorage.removeItem("surefood-cart-notice");
+      }
+    } catch {
+      /* storage can be blocked; the basket still fills correctly */
+    }
     void (async () => {
       try {
         const response = await fetch("/api/products", { signal: AbortSignal.timeout(15_000) });
@@ -100,6 +111,12 @@ export default function CartPage() {
             <p>Review your basket before checkout.</p>
           </div>
         </div>
+
+        {notice && (
+          <p className="sf-cart-notice" role="status">
+            <span aria-hidden="true">✓</span> {notice}
+          </p>
+        )}
 
         {ready && !lines.length ? (
           <div className="sf-empty-state" style={{ margin: "10px 0 50px" }}>

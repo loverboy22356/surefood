@@ -339,3 +339,39 @@ html[data-theme="dark"] .sf-card-eye { background: #1a1a1a; }
 .sf-vendor-art { width: 44%; }
 .sf-vendor-off { max-width: 52%; }
 .sf-vendor-count { max-width: 56%; }
+
+/* A note carried over from another page (e.g. a repeat order) sits above the flow. */
+.sf-cart-notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 4px;
+  padding: 11px 14px;
+  border: 1px solid #cdebd9;
+  border-radius: 12px;
+  background: #f1fbf5;
+  color: #14713f;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.sf-cart-notice > span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #d8f3e3;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+html[data-theme="dark"] .sf-cart-notice {
+  border-color: #1d3c2c;
+  background: #0f1d16;
+  color: #8fe0b4;
+}
+
+html[data-theme="dark"] .sf-cart-notice > span { background: #16301f; }

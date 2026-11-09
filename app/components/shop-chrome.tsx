@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
-import { cartItemCount } from "./cart-client";
+import { cartItemCount, readCartLines } from "./cart-client";
 import {
   apiProductToListing,
   formatMarketMoney,
@@ -15,6 +15,7 @@ import {
   type MarketplaceProduct,
 } from "./marketplace-product";
 import "@/app/shop.css";
+import "./header.css";
 import "@/app/marketplace.css";
 
 type PlaceOption = { code: string; name: string };
@@ -28,6 +29,44 @@ const quickNav = [
   "Pantry essentials",
   "Drinks",
   "Snacks & treats",
+];
+
+/** The drawer is grouped so a phone screen stays scannable instead of a wall of links. */
+const drawerGroups = [
+  {
+    title: "Shop",
+    links: [
+      { href: "/categories", label: "All categories", icon: "▦" },
+      { href: "/shop", label: "Shop everything", icon: "🛍" },
+      { href: "/shop?deals=1", label: "Offers of the day", icon: "%" },
+      { href: "/favorites", label: "Saved items", icon: "♥" },
+    ],
+  },
+  {
+    title: "Regular supply",
+    links: [
+      { href: "/baskets", label: "Food baskets", icon: "🧺" },
+      { href: "/baskets/build", label: "Build your own basket", icon: "✎" },
+      { href: "/baskets/dashboard", label: "My basket plan", icon: "◷" },
+    ],
+  },
+  {
+    title: "For business",
+    links: [
+      { href: "/business", label: "Bulk & business", icon: "🏢" },
+      { href: "/business#quote", label: "Request a quotation", icon: "✉" },
+      { href: "/pay-later", label: "Pay later", icon: "₦" },
+      { href: "/special-orders", label: "Event orders", icon: "🎉" },
+    ],
+  },
+  {
+    title: "Support",
+    links: [
+      { href: "/track-order", label: "Track an order", icon: "▸" },
+      { href: "/help", label: "Help centre", icon: "?" },
+      { href: "/contact", label: "Contact us", icon: "☎" },
+    ],
+  },
 ];
 
 /**
@@ -48,6 +87,7 @@ export function ShopHeader() {
   const [catalog, setCatalog] = useState<MarketplaceProduct[] | null>(null);
   const [categoryNames, setCategoryNames] = useState<string[]>(quickNav);
   const [basket, setBasket] = useState(0);
+  const [basketTotal, setBasketTotal] = useState("");
   const [saved, setSaved] = useState(0);
   const [signedIn, setSignedIn] = useState(false);
   const [place, setPlace] = useState("");
@@ -57,19 +97,30 @@ export function ShopHeader() {
   useEffect(() => {
     setMega(null);
     setLocationOpen(false);
+    setMenuOpen(false);
+    setMobileSearch(false);
   }, [pathname]);
 
-  /* Escape closes the category and location panels; leaving the nav does it too. */
+  /* The drawer takes over the screen, so the page behind must not scroll. */
   useEffect(() => {
-    if (!mega && !locationOpen) return;
+    if (!menuOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [menuOpen]);
+
+  /* Escape closes the category, location and menu panels. */
+  useEffect(() => {
+    if (!mega && !locationOpen && !menuOpen) return;
     const dismiss = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setMega(null);
       setLocationOpen(false);
+      setMenuOpen(false);
     };
     document.addEventListener("keydown", dismiss);
     return () => document.removeEventListener("keydown", dismiss);
-  }, [mega, locationOpen]);
+  }, [mega, locationOpen, menuOpen]);
 
   /*
    * The pill locates the buyer automatically. The state list is only loaded as a
@@ -182,6 +233,9 @@ export function ShopHeader() {
   useEffect(() => {
     const sync = () => {
       setBasket(cartItemCount());
+      const lines = readCartLines();
+      const total = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+      setBasketTotal(lines.length && total ? formatMarketMoney(total, lines[0].product.currency) : "");
       setSaved(readFavourites().length);
     };
     sync();
@@ -205,23 +259,53 @@ export function ShopHeader() {
     };
   }, []);
 
+  const searchForm = (variant: "bar" | "mobile") => (
+    <form
+      className={variant === "mobile" ? "sf-search is-mobile" : "sf-search"}
+      role="search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const value = term.trim();
+        setMobileSearch(false);
+        router.push(value ? `/search?q=${encodeURIComponent(value)}` : "/categories");
+      }}
+    >
+      <span className="sf-search-icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+          <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </span>
+      <input
+        type="search"
+        value={term}
+        onChange={(event) => setTerm(event.target.value)}
+        placeholder="Search rice, tomatoes, oil, diapers…"
+        aria-label="Search products"
+        autoFocus={variant === "mobile"}
+      />
+      <button type="submit">Search</button>
+    </form>
+  );
+
   return (
     <>
       <div className="sf-utility">
         <div className="sf-utility-in">
           <div className="sf-utility-group">
+            <span className="sf-utility-tag">
+              <span aria-hidden="true">🚚</span> Free delivery on orders above ₦25,000
+            </span>
+            <span className="sf-utility-divider" aria-hidden="true" />
             <span className="sf-utility-place">
-              Welcome to <strong>surefoodz</strong> Marketplace!
+              Delivering to <strong>{place || "Nigeria"}</strong>
             </span>
           </div>
           <div className="sf-utility-group is-end">
-            <Link className="sf-utility-place" href="/account">
-              Deliver to <strong>{place || "Nigeria"}</strong>
-            </Link>
-            <span className="sf-utility-divider" aria-hidden="true" />
+            <Link href="/business">Bulk &amp; business</Link>
             <Link href="/track-order">Track your order</Link>
             <Link href="/help">Help</Link>
-            <Link href="/shop?deals=1">All Offers</Link>
+            <Link className="sf-utility-cta" href="/signup?role=vendor">Sell on Sure Foodz</Link>
           </div>
         </div>
       </div>
@@ -232,38 +316,28 @@ export function ShopHeader() {
             <span className="sf-brand-logo" aria-hidden="true">
               <img src="/images/surefoodz-logo.webp" alt="" width={320} height={213} />
             </span>
-            <span className="sf-brand-word">Sure<em>Foodz</em></span>
+            <span className="sf-brand-copy">
+              <span className="sf-brand-word">Sure<em>Foodz</em></span>
+              <small>Fresh groceries, delivered</small>
+            </span>
           </Link>
+
           <Link className="sf-brand-badge" href="/shop?deals=1" aria-label="Today's deals">
             <b>50% OFF</b>
             <small>Fresh Deals</small>
           </Link>
 
-          <form
-            className="sf-search"
-            role="search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const value = term.trim();
-              router.push(value ? `/search?q=${encodeURIComponent(value)}` : "/categories");
-            }}
-          >
-            <input
-              type="search"
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              placeholder="Search essentials, groceries and more..."
-              aria-label="Search products"
-            />
-            <button type="submit" aria-label="Search">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
-          </form>
+          {searchForm("bar")}
 
           <div className="sf-tools">
+            <Link className="sf-hd-pill is-basket" href="/baskets">
+              <span className="sf-hd-pill-icon" aria-hidden="true">🧺</span>
+              <span className="sf-hd-pill-copy"><small>Regular supply</small><b>Baskets</b></span>
+            </Link>
+            <Link className="sf-hd-pill is-business" href="/business">
+              <span className="sf-hd-pill-icon" aria-hidden="true">🏢</span>
+              <span className="sf-hd-pill-copy"><small>Wholesale</small><b>Business</b></span>
+            </Link>
             <button
               type="button"
               className="sf-tool sf-tool-search"
@@ -278,39 +352,42 @@ export function ShopHeader() {
                 </svg>
               </span>
             </button>
-            <Link className="sf-tool" href="/shop?deals=1">
-              <span className="sf-tool-icon" aria-hidden="true">%</span>
-              <span className="sf-tool-copy"><b>My Deals</b></span>
-            </Link>
             <Link className="sf-tool" href="/favorites" aria-label={`Wishlist, ${saved} saved`}>
               <span className="sf-tool-icon" aria-hidden="true">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M12 20s-7.5-4.4-7.5-9.4A4.1 4.1 0 0 1 12 7.6a4.1 4.1 0 0 1 7.5 3C19.5 15.6 12 20 12 20Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
                 </svg>
                 {saved > 0 && <i>{saved}</i>}
               </span>
+              <span className="sf-tool-copy"><b>Saved</b></span>
             </Link>
             {signedIn ? (
-              <Link className="sf-tool-signin" href="/account">My account</Link>
+              <Link className="sf-tool-signin" href="/account">
+                <span className="sf-tool-signin-avatar" aria-hidden="true">◎</span>
+                My account
+              </Link>
             ) : (
               <Link className="sf-tool-signin" href="/login">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <circle cx="12" cy="8.5" r="3.4" stroke="currentColor" strokeWidth="1.8" />
                   <path d="M5.5 19.5c.7-3.3 3.4-5.1 6.5-5.1s5.8 1.8 6.5 5.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
-                Sign Up/Sign In
+                Sign in
               </Link>
             )}
-            <Link className="sf-tool" href="/cart" aria-label={`Cart, ${basket} items`}>
+            <Link className="sf-tool is-cart" href="/cart" aria-label={`Cart, ${basket} items`}>
               <span className="sf-tool-icon" aria-hidden="true">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
                   <path d="M3 4h2l2.4 11.2h10.8L20 7H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   <circle cx="9.5" cy="19" r="1.4" fill="currentColor" />
                   <circle cx="17" cy="19" r="1.4" fill="currentColor" />
                 </svg>
                 {basket > 0 && <i>{basket}</i>}
               </span>
-              <span className="sf-tool-copy"><b>Cart</b></span>
+              <span className="sf-tool-copy">
+                <small>My cart</small>
+                <b>{basketTotal || "Empty"}</b>
+              </span>
             </Link>
             <button
               type="button"
@@ -328,55 +405,9 @@ export function ShopHeader() {
 
         {mobileSearch && (
           <div className="sf-shell sf-mobile-search">
-            <form
-              className="sf-search"
-              role="search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const value = term.trim();
-                router.push(value ? `/search?q=${encodeURIComponent(value)}` : "/categories");
-              }}
-            >
-              <input
-                type="search"
-                value={term}
-                onChange={(event) => setTerm(event.target.value)}
-                placeholder="Search essentials, groceries and more..."
-                aria-label="Search products"
-                autoFocus
-              />
-              <button type="submit" aria-label="Search">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                  <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
-            </form>
-          </div>
-        )}
-
-        {menuOpen && (
-          <div className="sf-shell" style={{ paddingBottom: 14 }}>
-            <div className="sf-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-              {[
-                { href: "/categories", label: "All categories" },
-                { href: "/shop", label: "Shop everything" },
-                { href: "/pay-later", label: "Pay later" },
-                { href: "/special-orders", label: "Event orders" },
-                { href: "/favorites", label: "Wishlist" },
-                { href: "/help", label: "Help centre" },
-                { href: signedIn ? "/account" : "/login", label: signedIn ? "My account" : "Sign in" },
-              ].map((item) => (
-                <Link
-                  key={item.href + item.label}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="sf-btn is-ghost"
-                  style={{ height: 40, fontSize: 12 }}
-                >
-                  {item.label}
-                </Link>
-              ))}
+            {searchForm("mobile")}
+            <div className="sf-mobile-search-hint">
+              Try “rice”, “palm oil” or <Link href="/baskets">browse baskets →</Link>
             </div>
           </div>
         )}
@@ -384,7 +415,8 @@ export function ShopHeader() {
 
       <nav
         className="sf-nav"
-        aria-label="Shop by category"            onMouseLeave={() => { setMega(null); if (!locating) setLocationOpen(false); }}
+        aria-label="Shop by category"
+        onMouseLeave={() => { setMega(null); if (!locating) setLocationOpen(false); }}
       >
         <div className="sf-nav-in">
           <button
@@ -400,6 +432,12 @@ export function ShopHeader() {
             All Categories
             <span className="sf-nav-chev" aria-hidden="true">▾</span>
           </button>
+          <Link className="sf-nav-link is-feature" href="/baskets">
+            <span aria-hidden="true">🧺</span> Food baskets
+          </Link>
+          <Link className="sf-nav-link is-feature is-business" href="/business">
+            <span aria-hidden="true">🏢</span> Bulk &amp; business
+          </Link>
           <button
             type="button"
             className={locationOpen ? "sf-nav-pill is-open" : "sf-nav-pill"}
@@ -426,7 +464,6 @@ export function ShopHeader() {
               onFocus={() => openMenu(name)}
             >
               {name}
-              <span className="sf-nav-chev" aria-hidden="true">▾</span>
             </Link>
           ))}
           <Link className="sf-nav-link is-offer" href="/shop?deals=1">All Offers</Link>
@@ -476,12 +513,20 @@ export function ShopHeader() {
                 <Link className="sf-mega-all" href="/categories">View all categories →</Link>
               </div>
 
-              <Link className="sf-mega-promo" href="/shop?deals=1">
-                <span className="sf-mega-promo-kicker">Deals of the day</span>
-                <strong>Up to 50% off</strong>
-                <small>Fresh picks, priced low for today only.</small>
-                <em>Shop now</em>
-              </Link>
+              <div className="sf-mega-side">
+                <Link className="sf-mega-promo" href="/shop?deals=1">
+                  <span className="sf-mega-promo-kicker">Deals of the day</span>
+                  <strong>Up to 50% off</strong>
+                  <small>Fresh picks, priced low for today only.</small>
+                  <em>Shop now</em>
+                </Link>
+                <Link className="sf-mega-promo is-basket" href="/baskets">
+                  <span className="sf-mega-promo-kicker">Sure Foodz Basket</span>
+                  <strong>Never run out</strong>
+                  <small>Weekly, fortnightly or monthly food baskets.</small>
+                  <em>See baskets</em>
+                </Link>
+              </div>
             </div>
           </div>
         )}
@@ -544,6 +589,74 @@ export function ShopHeader() {
           </div>
         )}
       </nav>
+
+      {menuOpen && (
+        <div className="sf-drawer" role="dialog" aria-modal="true" aria-label="Menu">
+          <button
+            type="button"
+            className="sf-drawer-scrim"
+            aria-label="Close menu"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="sf-drawer-panel">
+            <div className="sf-drawer-head">
+              <Link className="sf-drawer-brand" href="/" onClick={() => setMenuOpen(false)}>
+                <img src="/images/surefoodz-logo.webp" alt="" width={320} height={213} />
+                <span>Sure<em>Foodz</em></span>
+              </Link>
+              <button type="button" className="sf-drawer-close" aria-label="Close menu" onClick={() => setMenuOpen(false)}>×</button>
+            </div>
+
+            {searchForm("mobile")}
+
+            <div className="sf-drawer-body">
+              {drawerGroups.map((group) => (
+                <section key={group.title} className="sf-drawer-group">
+                  <h3>{group.title}</h3>
+                  <ul>
+                    {group.links.map((item) => (
+                      <li key={item.href + item.label}>
+                        <Link href={item.href} onClick={() => setMenuOpen(false)}>
+                          <span className="sf-drawer-icon" aria-hidden="true">{item.icon}</span>
+                          {item.label}
+                          <span className="sf-drawer-go" aria-hidden="true">›</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+
+            <div className="sf-drawer-foot">
+              {signedIn
+                ? <Link href="/account" onClick={() => setMenuOpen(false)}>My account</Link>
+                : <Link href="/login" onClick={() => setMenuOpen(false)}>Sign in</Link>}
+              <Link href="/signup" onClick={() => setMenuOpen(false)}>Create account</Link>
+              <a href="tel:+2348160961127">Call support</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <nav className="sf-tabbar" aria-label="Quick links">
+        <Link className={pathname === "/" ? "is-on" : undefined} href="/">
+          <span aria-hidden="true">⌂</span>Home
+        </Link>
+        <Link className={pathname.startsWith("/shop") || pathname.startsWith("/categories") ? "is-on" : undefined} href="/shop">
+          <span aria-hidden="true">▦</span>Shop
+        </Link>
+        <Link className={pathname.startsWith("/baskets") ? "is-on" : undefined} href="/baskets">
+          <span aria-hidden="true">🧺</span>Baskets
+        </Link>
+        <Link className={pathname.startsWith("/business") ? "is-on" : undefined} href="/business">
+          <span aria-hidden="true">🏢</span>Business
+        </Link>
+        <Link className={pathname === "/cart" ? "is-on" : undefined} href="/cart">
+          <span aria-hidden="true">🛒</span>Cart
+          {basket > 0 && <i>{basket}</i>}
+        </Link>
+      </nav>
     </>
   );
 }
@@ -601,6 +714,16 @@ export function ShopFooter() {
           </ul>
         </div>
         <div>
+          <h3>Regular supply</h3>
+          <ul>
+            <li><Link href="/baskets">Food baskets</Link></li>
+            <li><Link href="/baskets/build">Build your own basket</Link></li>
+            <li><Link href="/baskets/dashboard">My basket plan</Link></li>
+            <li><Link href="/business">Bulk &amp; business</Link></li>
+            <li><Link href="/business#quote">Request a quotation</Link></li>
+          </ul>
+        </div>
+        <div>
           <h3>Quick Links</h3>
           <ul>
             <li><Link href="/account">My account</Link></li>
@@ -619,16 +742,6 @@ export function ShopFooter() {
             <a className="sf-footer-app" href="#android"><span aria-hidden="true">▶</span><span><small>Get it on</small><b>Google Play</b></span></a>
             <a className="sf-footer-app" href="#ios"><span aria-hidden="true"></span><span><small>Download on the</small><b>App Store</b></span></a>
           </div>
-        </div>
-        <div>
-          <h3>Popular Tags</h3>
-          <ul>
-            <li><Link href="/shop?category=Fresh%20vegetables">Vegetables</Link></li>
-            <li><Link href="/shop?category=Fresh%20fruits">Fruits</Link></li>
-            <li><Link href="/shop?category=Drinks">Drinks</Link></li>
-            <li><Link href="/shop?category=Bakery">Bakery</Link></li>
-            <li><Link href="/shop?deals=1">Discount</Link></li>
-          </ul>
         </div>
       </div>
       <div className="sf-footer-bottom">

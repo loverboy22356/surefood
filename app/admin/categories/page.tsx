@@ -65,6 +65,15 @@ export default function AdminCategoriesPage() {
         <Link href="/admin/verification" className="brand"><span className="brand-mark">s</span><span>sure<span>foodz</span></span></Link>
         <div><span>STAFF WORKSPACE</span><h1>Product categories</h1><p>Categories created here are available to sellers when they list products.</p></div>
         <Link href="/admin/verification">Business verification →</Link>
+        <nav className="admin-queue-nav">
+          <Link className="is-current" href="/admin/categories">Categories</Link>
+          <Link href="/admin/verification">Business verification</Link>
+          <Link href="/admin/pay-later">Pay Later</Link>
+          <Link href="/admin/special-orders">Event orders</Link>
+          <Link href="/admin/quotes">Quotations</Link>
+          <Link href="/admin/baskets">Baskets</Link>
+          <Link href="/admin/affiliates">Affiliates</Link>
+        </nav>
       </header>
       {!user ? <p className="manual-review-empty">Sign in with a Sure Foodz staff account to manage categories. <Link href="/login">Sign in →</Link></p>
         : !staff ? <p className="manual-review-alert" role="alert">A Sure Foodz staff or admin account is required.</p>

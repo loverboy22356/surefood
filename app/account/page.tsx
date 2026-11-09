@@ -6,7 +6,12 @@ import { onAuthStateChanged, sendPasswordResetEmail, signOut, type User } from "
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
-import { readFavourites } from "@/app/components/marketplace-product";
+import { addItemToBasket } from "@/app/components/cart-client";
+import {
+  apiProductToListing,
+  readFavourites,
+  type ApiProduct,
+} from "@/app/components/marketplace-product";
 import { ThemeToggle } from "@/app/components/theme-toggle";
 import { ShopFooter, ShopHeader } from "@/app/components/shop-chrome";
 import "./account.css";
@@ -27,7 +32,7 @@ type BuyerOrder = {
   id: string;
   sellerName: string;
   sellerRole: string;
-  items: { name: string; quantity: number }[];
+  items: { productId?: string; name: string; quantity: number }[];
   subtotalMinor: number;
   deliveryFeeMinor: number | null;
   totalMinor: number;
@@ -124,6 +129,7 @@ export default function AccountPage() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [payingOrderId, setPayingOrderId] = useState("");
+  const [reorderingId, setReorderingId] = useState("");
   const [orderNotice, setOrderNotice] = useState("");
   const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
   const [memberSince, setMemberSince] = useState<string | null>(null);
@@ -327,6 +333,56 @@ export default function AccountPage() {
     } catch (reason) {
       setOrdersError(reason instanceof Error ? reason.message : "Could not start secure checkout.");
       setPayingOrderId("");
+    }
+  }
+
+  /**
+   * Repeat order: re-adds every line that is still listed, at today's price and
+   * within today's stock, then opens the basket. Delisted items are named so the
+   * buyer knows exactly what changed.
+   */
+  async function repeatOrder(order: BuyerOrder) {
+    if (!user) return;
+    setReorderingId(order.id);
+    setOrdersError("");
+    setOrderNotice("");
+    try {
+      const response = await fetch("/api/products", { signal: AbortSignal.timeout(20_000) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof data?.error === "string" ? data.error : "Could not load today's prices.");
+      const catalogue = new Map(
+        (Array.isArray(data.products) ? data.products as ApiProduct[] : []).map((product) => [product.id, apiProductToListing(product)]),
+      );
+
+      let added = 0;
+      const missing: string[] = [];
+      let refusal = "";
+      for (const item of order.items) {
+        const product = item.productId ? catalogue.get(item.productId) : undefined;
+        if (!product) {
+          missing.push(item.name);
+          continue;
+        }
+        const result = addItemToBasket(product, item.quantity);
+        if (result.ok) added += 1;
+        else refusal = result.message;
+      }
+      window.dispatchEvent(new Event("surefood-cart-changed"));
+
+      if (!added) {
+        setOrdersError(
+          refusal ||
+            `None of these items are listed right now. ${missing.length ? `${missing.join(", ")} may be out of season — b` : "B"}rowse the shop for alternatives.`,
+        );
+        return;
+      }
+      const summary = `${added} item${added === 1 ? "" : "s"} added to your basket${missing.length ? ` · ${missing.join(", ")} is no longer listed` : ""}.`;
+      window.sessionStorage.setItem("surefood-cart-notice", summary);
+      router.push("/cart");
+    } catch (reason) {
+      setOrdersError(reason instanceof Error ? reason.message : "Could not repeat that order.");
+    } finally {
+      setReorderingId("");
     }
   }
 
@@ -603,6 +659,20 @@ export default function AccountPage() {
                               </>
                             )}
                             {order.paymentStatus === "paid" && <p className="acct-order-paid">Payment confirmed. The seller can prepare your order.</p>}
+                            <div className="acct-order-actions">
+                              <button
+                                type="button"
+                                className="acct-order-repeat"
+                                disabled={reorderingId === order.id}
+                                onClick={() => void repeatOrder(order)}
+                              >
+                                <Icon name="basket" />
+                                {reorderingId === order.id ? "Filling your basket…" : "Repeat this order"}
+                              </button>
+                              <Link className="acct-order-link" href="/baskets">
+                                Make it a monthly basket →
+                              </Link>
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -620,6 +690,7 @@ export default function AccountPage() {
                   <ul className="acct-settings">
                     <li><button className="acct-setting-button" type="button" onClick={() => void sendPasswordReset()} disabled={resetting}><span className="acct-settings-icon"><Icon name="lock" /></span><span><strong>Change password</strong><small>{resetting ? "Sending reset link…" : "Keep your account secure"}</small></span><em aria-hidden="true">›</em></button></li>
                     <li><Link href="/account#buyer-orders"><span className="acct-settings-icon"><Icon name="receipt" /></span><span><strong>My orders</strong><small>Track delivery and payments</small></span><em aria-hidden="true">›</em></Link></li>
+                    <li><Link href="/baskets/dashboard"><span className="acct-settings-icon"><Icon name="basket" /></span><span><strong>My basket plan</strong><small>Weekly, fortnightly or monthly food</small></span><em aria-hidden="true">›</em></Link></li>
                     <li><Link href="/favorites"><span className="acct-settings-icon"><Icon name="heart" /></span><span><strong>Saved items</strong><small>Products you love</small></span><em aria-hidden="true">›</em></Link></li>
                     <li><Link href="/affiliate"><span className="acct-settings-icon"><Icon name="sparkle" /></span><span><strong>Affiliate programme</strong><small>Earn on every referral</small></span><em aria-hidden="true">›</em></Link></li>
                     <li><Link href="/pay-later"><span className="acct-settings-icon"><Icon name="clock" /></span><span><strong>Pay later</strong><small>Buy now, pay on credit</small></span><em aria-hidden="true">›</em></Link></li>
