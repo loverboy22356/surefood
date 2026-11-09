@@ -230,7 +230,7 @@ export function ShopHeader() {
         <div className="sf-header-in">
           <Link className="sf-brand" href="/" aria-label="Sure Foodz home">
             <span className="sf-brand-logo" aria-hidden="true">
-              <img src="/images/surefoodz-logo.png" alt="" />
+              <img src="/images/surefoodz-logo.webp" alt="" width={320} height={213} />
             </span>
             <span className="sf-brand-word">Sure<em>Foodz</em></span>
           </Link>
@@ -581,7 +581,7 @@ export function ShopFooter() {
         <div>
           <div className="sf-footer-brand">
             <span className="sf-footer-logo">
-              <img src="/images/surefoodz-logo.png" alt="Sure Foodz" />
+              <img src="/images/surefoodz-logo.webp" alt="Sure Foodz" width={320} height={213} />
             </span>
           </div>
           <div className="sf-footer-contact">

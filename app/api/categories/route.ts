@@ -1,6 +1,8 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { authenticatedUser, isStaff } from "@/lib/auth/server";
 import { adminDb, firebaseAdminConfigured } from "@/lib/firebase/admin";
+import { loadProductCategories } from "@/lib/catalog";
+import { CATEGORIES_CACHE_HEADERS, invalidate } from "@/lib/server-cache";
 import { sellerCanManageListings } from "@/lib/auth/seller-verification";
 import { categoryId, DEFAULT_PRODUCT_CATEGORIES } from "@/lib/product-categories";
 import { cleanString, jsonError, readJson } from "@/lib/http";
@@ -9,12 +11,11 @@ export const runtime = "nodejs";
 
 export async function GET() {
   if (!firebaseAdminConfigured()) {
-    return Response.json({ categories: [...DEFAULT_PRODUCT_CATEGORIES] });
+    return Response.json({ categories: [...DEFAULT_PRODUCT_CATEGORIES] }, { headers: CATEGORIES_CACHE_HEADERS });
   }
   try {
-    const snapshot = await adminDb().collection("productCategories").where("active", "==", true).get();
-    const names = snapshot.docs.map((document) => String(document.data().name ?? ""));
-    return Response.json({ categories: [...new Set([...DEFAULT_PRODUCT_CATEGORIES, ...names])].sort((a, b) => a.localeCompare(b)) });
+    const categories = await loadProductCategories();
+    return Response.json({ categories }, { headers: CATEGORIES_CACHE_HEADERS });
   } catch (error) {
     console.error("Could not load product categories.", error);
     return jsonError("Product categories are temporarily unavailable.", 500);
@@ -60,6 +61,8 @@ export async function POST(request: Request) {
         updatedAt: Timestamp.now(),
       });
     });
+    // The shelf is memoised, so a seller who just added a category sees it at once.
+    invalidate("catalog:categories");
     return Response.json({ category: name }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "CATEGORY_EXISTS") {

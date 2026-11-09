@@ -2,6 +2,8 @@ import { Timestamp } from "firebase-admin/firestore";
 import { authenticatedUser } from "@/lib/auth/server";
 import { createActivity } from "@/lib/activity";
 import { adminDb, firebaseAdminConfigured } from "@/lib/firebase/admin";
+import { loadBuyerCatalog } from "@/lib/catalog";
+import { PUBLIC_CACHE_HEADERS } from "@/lib/server-cache";
 import { sellerCanManageListings } from "@/lib/auth/seller-verification";
 import { cleanString, jsonError, readJson } from "@/lib/http";
 import { categoryId, DEFAULT_PRODUCT_CATEGORIES } from "@/lib/product-categories";
@@ -14,59 +16,29 @@ export async function GET(request: Request) {
   }
   try {
     const ownProducts = new URL(request.url).searchParams.get("mine") === "true";
-    const user = ownProducts ? await authenticatedUser(request) : null;
-    let snapshot;
-    if (ownProducts) {
-      if (!user) return jsonError("Sign in to view your products.", 401);
-      if (user.role !== "vendor" && user.role !== "supplier") return jsonError("Only sellers can view their product listings.", 403);
-      snapshot = await adminDb().collection("products")
-        .where("sellerId", "==", user.uid)
-        .orderBy("createdAt", "desc")
-        .limit(100)
-        .get();
-    } else {
-      snapshot = await adminDb().collection("products")
-        .where("status", "==", "active")
-        .orderBy("createdAt", "desc")
-        .limit(100)
-        .get();
+    // The buyer's shelf is the same for everyone: memoised in-process, cached at the edge.
+    if (!ownProducts) {
+      const products = await loadBuyerCatalog();
+      return Response.json({ products }, { headers: PUBLIC_CACHE_HEADERS });
     }
-    const firestoreProducts: ({ id: string } & Record<string, unknown>)[] = snapshot.docs.map((document) => ({
+
+    const user = await authenticatedUser(request);
+    if (!user) return jsonError("Sign in to view your products.", 401);
+    if (user.role !== "vendor" && user.role !== "supplier") return jsonError("Only sellers can view their product listings.", 403);
+    // A seller's own listings depend on who is asking, so they are never cached.
+    const snapshot = await adminDb().collection("products")
+      .where("sellerId", "==", user.uid)
+      .orderBy("createdAt", "desc")
+      .limit(100)
+      .get();
+    const ownListings = snapshot.docs.map((document) => ({
       id: document.id,
       ...document.data(),
     }));
-    if (ownProducts && user) {
-      const products = isLocalTestSeller(user.email)
-        ? [...getLocalTestProducts(user.uid), ...firestoreProducts]
-        : firestoreProducts;
-      return Response.json({ products });
-    }
-    const products = firestoreProducts;
-
-    const sellerIds = [...new Set(products.map((product) => String(product.sellerId ?? "")).filter(Boolean))];
-    const sellerProfiles = await Promise.all(sellerIds.map((sellerId) => adminDb().collection("users").doc(sellerId).get()));
-    const sellers = new Map(sellerProfiles.filter((profile) => profile.exists).map((profile) => [profile.id, profile.data()!]));
-    const activeProducts = products.flatMap((product) => {
-      const seller = sellers.get(String(product.sellerId));
-      const unpaidApprovalFee = Boolean(seller?.approvalFeeStatus) && seller?.approvalFeeStatus !== "paid";
-      if (!seller || seller.verificationStatus !== "approved" || unpaidApprovalFee) return [];
-      const expiryDate = typeof product.expiryDate === "string" ? product.expiryDate : "";
-      if (expiryDate && expiryDate < new Date().toISOString().slice(0, 10)) return [];
-      const business = seller.business ?? {};
-      return [{
-        ...product,
-        sellerName: typeof business.businessName === "string" && business.businessName
-          ? business.businessName
-          : String(seller.displayName ?? "Sure Foodz seller"),
-        sellerLogoUrl: typeof seller.businessLogoUrl === "string" ? seller.businessLogoUrl : "",
-        sellerRole: seller.role,
-        sellerVerified: true,
-        sellerCity: String(business.city ?? ""),
-        sellerRegion: String(business.region ?? ""),
-        sellerLocation: [business.city, business.region].filter((value) => typeof value === "string" && value.trim()).join(", "),
-      }];
-    });
-    return Response.json({ products: activeProducts });
+    const products = isLocalTestSeller(user.email)
+      ? [...getLocalTestProducts(user.uid), ...ownListings]
+      : ownListings;
+    return Response.json({ products });
   } catch (error) {
     console.error("Could not load the Sure Foodz product catalog.", error);
     return jsonError("The product catalog is temporarily unavailable.", 500);

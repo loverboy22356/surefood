@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Figtree, Fraunces } from "next/font/google";
 import "./globals.css";
 import "./browse.css";
 import "./motion.css";
@@ -10,6 +11,25 @@ import { LocaleProvider } from "./components/locale-provider";
 import { ReferralCapture } from "./components/referral-capture";
 import { ThemeProvider } from "./components/theme-provider";
 import { themeInitScript } from "./components/theme-script";
+
+// Downloaded once at build time and served from this origin, so text never waits
+// on a round trip to Google before it can render.
+const figtree = Figtree({
+  subsets: ["latin"],
+  display: "swap",
+  weight: "variable",
+  variable: "--font-body",
+  fallback: ["Segoe UI", "system-ui", "sans-serif"],
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  weight: "variable",
+  axes: ["opsz"],
+  variable: "--font-brand",
+  fallback: ["Iowan Old Style", "Georgia", "serif"],
+});
 
 export const metadata: Metadata = {
   title: "Sure Foodz | Fresh, good food",
@@ -29,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${figtree.variable} ${fraunces.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
