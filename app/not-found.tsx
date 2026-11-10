@@ -14,14 +14,22 @@ export default function NotFound() {
           <div className="sf-lost-art" aria-hidden="true">404</div>
           <div className="sf-lost-copy">
             <div className="sf-check-mark" style={{ borderColor: "#e23b3b", color: "#e23b3b" }} aria-hidden="true">✕</div>
-            <h1>404, Page not found</h1>
+            <h1>Page not found</h1>
             <p>
-              Something went wrong. It looks like your requested page could not be found.
-              It may be broken or the page has been removed.
+              The page you&rsquo;re looking for isn&rsquo;t here &mdash; it may have moved or been removed.
+              The shelves are still open, though.
             </p>
-            <div className="sf-success-actions">
-              <Link className="sf-btn is-pay" href="/shop">Go back</Link>
-              <Link className="sf-btn is-ghost" href="/">Go to home</Link>
+            <div className="sf-lost-actions">
+              <Link className="sf-btn" href="/">Go to home</Link>
+              <Link className="sf-btn is-ghost" href="/shop">Browse the shop</Link>
+            </div>
+            <div className="sf-lost-quick">
+              <span>Or jump straight to:</span>
+              <div className="sf-lost-chips">
+                <Link className="sf-chip" href="/baskets">Sure Foodz Basket</Link>
+                <Link className="sf-chip" href="/business">Business portal</Link>
+                <Link className="sf-chip" href="/categories">Categories</Link>
+              </div>
             </div>
           </div>
         </div>
