@@ -65,6 +65,11 @@ export async function POST(request: Request) {
     : Number(body.compareAtMinor);
   const stock = Number(body.stock);
   const currency = cleanString(body.currency, 3).toUpperCase() || "NGN";
+  const isBundle = body.isBundle === true;
+  const bundleItems = Array.isArray(body.bundleItems)
+    ? body.bundleItems.filter((item: unknown) => typeof item === "string" && item.trim()).map((item: string) => item.trim()).slice(0, 10)
+    : [];
+  const packager = cleanString(body.packager, 80);
   const parsedExpiryDate = new Date(`${expiryDate}T00:00:00.000Z`);
   const validExpiryDate = /^\d{4}-\d{2}-\d{2}$/.test(expiryDate) &&
     !Number.isNaN(parsedExpiryDate.getTime()) &&
@@ -111,6 +116,9 @@ export async function POST(request: Request) {
       productKind,
       expiryDate,
       ...(nafdacNumber ? { nafdacNumber } : {}),
+      ...(isBundle ? { isBundle: true } : {}),
+      ...(bundleItems.length ? { bundleItems } : {}),
+      ...(packager ? { packager } : {}),
       sellerCity: String(business.city ?? ""),
       sellerRegion: String(business.region ?? ""),
       imageUrl,

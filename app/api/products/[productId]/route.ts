@@ -85,6 +85,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ produ
     }
     updates.imageUrl = imageUrl;
   }
+  if (body.isBundle !== undefined) updates.isBundle = Boolean(body.isBundle);
+  if (body.bundleItems !== undefined) {
+    if (!Array.isArray(body.bundleItems)) return jsonError("Bundle items must be a list.", 400);
+    updates.bundleItems = body.bundleItems.filter((item: unknown) => typeof item === "string" && item.trim()).map((item: string) => item.trim()).slice(0, 10);
+  }
+  if (body.packager !== undefined) updates.packager = cleanString(body.packager, 80);
   if (body.status !== undefined) {
     if (body.status !== "active" && body.status !== "inactive") return jsonError("Choose active or inactive product status.", 400);
     updates.status = body.status;
@@ -126,6 +132,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ produ
         compareAtMinor: "original price",
         stock: "inventory",
         imageUrl: "photo",
+        isBundle: "bundle flag",
+        bundleItems: "bundle items",
+        packager: "packager",
         status: "listing status",
       };
       createActivity(transaction, {

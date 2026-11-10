@@ -38,6 +38,9 @@ type VendorProduct = {
   expiryDate?: string;
   nafdacNumber?: string;
   productKind?: string;
+  isBundle?: boolean;
+  bundleItems?: string[];
+  packager?: string;
 };
 
 type OrderStatus =
@@ -152,6 +155,9 @@ export default function SupplierPage() {
   const [productSaved, setProductSaved] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
   const savingProductRef = useRef(false);
+  const [isBundleMode, setIsBundleMode] = useState(false);
+  const [bundleItemsInput, setBundleItemsInput] = useState("");
+  const [packagerName, setPackagerName] = useState("");
   const [orders, setOrders] = useState<SupplierOrder[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [orderFilter, setOrderFilter] = useState<OrderStatus | "All">("All");
@@ -240,11 +246,12 @@ export default function SupplierPage() {
         if (!orderResponse.ok) throw new Error(orderData.error || "Could not load orders.");
         if (!activityResponse.ok) throw new Error(activityData.error || "Could not load recent activity.");
         if (!active) return;
-        setProducts(productData.products.map((product: { id: string; name: string; description?: string; category: string; priceMinor: number; compareAtMinor?: number; stock: number; imageUrl?: string; expiryDate?: string; nafdacNumber?: string; productKind?: string }) => ({
+        setProducts(productData.products.map((product: { id: string; name: string; description?: string; category: string; priceMinor: number; compareAtMinor?: number; stock: number; imageUrl?: string; expiryDate?: string; nafdacNumber?: string; productKind?: string; isBundle?: boolean; bundleItems?: string[]; packager?: string }) => ({
           id: product.id, name: product.name, description: product.description, category: product.category, price: product.priceMinor / 100,
           compareAt: product.compareAtMinor ? product.compareAtMinor / 100 : undefined,
           stock: product.stock, imageUrl: product.imageUrl, expiryDate: product.expiryDate,
           nafdacNumber: product.nafdacNumber, productKind: product.productKind, emoji: "📦",
+          isBundle: product.isBundle, bundleItems: product.bundleItems, packager: product.packager,
         })));
         setOrders(orderData.orders.map((order: { id: string; customerName?: string; customerPhone?: string; deliveryAddress?: string; items: { name: string; quantity: number }[]; totalMinor: number; deliveryFeeMinor?: number | null; paymentStatus?: string; status: OrderStatus }) => ({
           id: order.id, buyer: order.customerName || "Sure Foodz buyer",
@@ -330,6 +337,10 @@ export default function SupplierPage() {
     const expiryDate = String(formData.get("expiryDate"));
     const nafdacNumber = String(formData.get("nafdacNumber") ?? "");
     const image = formData.get("productImage");
+    const packager = String(formData.get("packagerName") ?? "").trim();
+    const isBundle = formData.get("isBundle") === "on";
+    const bundleItemsRaw = String(formData.get("bundleItems") ?? "");
+    const bundleItems = bundleItemsRaw.split(",").map((item) => item.trim()).filter(Boolean);
     const hasNewImage = image instanceof File && image.size > 0;
     const editing = editingProduct;
 
@@ -339,6 +350,10 @@ export default function SupplierPage() {
     }
     if (productKind === "manufacturer" && !nafdacNumber.trim()) {
       setWorkspaceError("Enter a NAFDAC number for manufacturer products.");
+      return;
+    }
+    if (isBundle && bundleItems.length === 0) {
+      setWorkspaceError("A bundle needs at least one item listed.");
       return;
     }
     // A double-click must not upload and create the same listing twice.
@@ -365,6 +380,8 @@ export default function SupplierPage() {
           stock,
           ...(imageUrl ? { imageUrl } : {}),
           currency: "NGN",
+          ...(isBundle ? { isBundle: true, bundleItems } : {}),
+          ...(packager ? { packager } : {}),
         }),
       });
       const result = await response.json();
@@ -608,8 +625,8 @@ export default function SupplierPage() {
             <section className="vendor-panel vendor-products-panel">
               <div className="vendor-panel-heading"><div><h2>Your Products</h2><p>{visibleProducts.length} products in your supplier catalogue</p></div></div>
               {productSaved && <p className="vendor-success" role="status">{isLocalTestMode ? "Test listing saved locally. It is not visible to buyers." : "Your catalogue is up to date."}</p>}
-              {canListProducts && showProductForm && <form key={editingProduct?.id ?? "new"} className="vendor-product-form" onSubmit={saveProduct}>{editingProduct && <h3 className="vendor-form-title">Editing {editingProduct.name}</h3>}<label>Product name<input name="productName" placeholder="e.g. Fresh mangoes (1kg)" defaultValue={editingProduct?.name ?? ""} required /></label><label>Product description <span>(shown to buyers)</span><textarea name="productDescription" rows={3} maxLength={500} defaultValue={editingProduct?.description ?? ""} placeholder="What is this product, how is it packed, and what makes it a good buy?" /></label><ProductCategoryPicker user={account.user} value={productCategory} onChange={setProductCategory} /><label>Product source<select name="productKind" defaultValue={editingProduct?.productKind ?? "supplier"} required><option value="supplier">Supplier (reselling)</option><option value="farmer">Farmer</option><option value="producer">Producer</option><option value="manufacturer">Manufacturer</option></select></label><label>Expiry date<input name="expiryDate" type="date" min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)} defaultValue={editingProduct?.expiryDate ?? ""} required /></label><label>NAFDAC number <span>(required for manufacturer products)</span><input name="nafdacNumber" maxLength={40} placeholder="e.g. A1-1234" defaultValue={editingProduct?.nafdacNumber ?? ""} /></label><label>Wholesale price (₦)<input name="productPrice" type="number" min="1" placeholder="1200" defaultValue={editingProduct?.price ?? ""} required /></label><label>Original price (₦, optional)<input name="compareAtPrice" type="number" min="1" placeholder="For discounted listings" defaultValue={editingProduct?.compareAt ?? ""} /></label><label>Stock quantity<input name="productStock" type="number" min="0" placeholder="100" defaultValue={editingProduct?.stock ?? ""} required /></label><label>Product photo <span>({editingProduct ? "leave empty to keep the current photo" : "required"})</span><input name="productImage" type="file" accept="image/jpeg,image/png,image/webp" required={!editingProduct} /></label><div className="vendor-form-actions"><button type="submit" className="vendor-primary-button" disabled={savingProduct}>{savingProduct ? "Saving…" : editingProduct ? "Save changes" : "Save product"}</button><button type="button" className="vendor-outline-button" onClick={closeProductForm} disabled={savingProduct}>Cancel</button></div></form>}
-              <div className="vendor-product-grid">{visibleProducts.map((product) => <article className="vendor-product-card" key={product.id}><div className="vendor-product-art">{product.imageUrl ? <Image src={product.imageUrl} alt={product.name} fill sizes="220px" unoptimized /> : <span>{product.emoji}</span>}<span className={product.stock < 15 ? "stock-pill low" : "stock-pill"}>{product.stock < 15 ? "Low stock" : "In stock"}</span></div><div className="vendor-product-details"><small>{[product.category, product.productKind].filter(Boolean).join(" · ")}</small><h3>{product.name}</h3><strong>{currency.format(product.price)}<small> / unit</small></strong><p className="vendor-product-description">{product.description || "No description added yet."}</p><p>Available stock: {product.stock} units{product.expiryDate ? ` · Expires ${product.expiryDate}` : ""}{product.nafdacNumber ? ` · NAFDAC ${product.nafdacNumber}` : ""}</p><div className="vendor-product-actions"><button type="button" onClick={() => editProduct(product)} disabled={busyProductId === product.id}>Edit</button><button type="button" className="danger" onClick={() => void deleteProduct(product)} disabled={busyProductId === product.id}>{busyProductId === product.id ? "Deleting…" : "Delete"}</button><button type="button" onClick={() => setActiveTab("Inventory")}>Manage stock →</button></div></div></article>)}</div>
+              {canListProducts && showProductForm && <form key={editingProduct?.id ?? "new"} className="vendor-product-form" onSubmit={saveProduct}>{editingProduct && <h3 className="vendor-form-title">Editing {editingProduct.name}</h3>}<label>Product name<input name="productName" placeholder="e.g. Fresh mangoes (1kg)" defaultValue={editingProduct?.name ?? ""} required /></label><label>Product description <span>(shown to buyers)</span><textarea name="productDescription" rows={3} maxLength={500} defaultValue={editingProduct?.description ?? ""} placeholder="What is this product, how is it packed, and what makes it a good buy?" /></label><ProductCategoryPicker user={account.user} value={productCategory} onChange={setProductCategory} /><label>Product source<select name="productKind" defaultValue={editingProduct?.productKind ?? "supplier"} required><option value="supplier">Supplier (reselling)</option><option value="farmer">Farmer</option><option value="producer">Producer</option><option value="manufacturer">Manufacturer</option></select></label><label>Expiry date<input name="expiryDate" type="date" min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)} defaultValue={editingProduct?.expiryDate ?? ""} required /></label><label>NAFDAC number <span>(required for manufacturer products)</span><input name="nafdacNumber" maxLength={40} placeholder="e.g. A1-1234" defaultValue={editingProduct?.nafdacNumber ?? ""} /></label><label>Wholesale price (₦)<input name="productPrice" type="number" min="1" placeholder="1200" defaultValue={editingProduct?.price ?? ""} required /></label><label>Original price (₦, optional)<input name="compareAtPrice" type="number" min="1" placeholder="For discounted listings" defaultValue={editingProduct?.compareAt ?? ""} /></label><label>Stock quantity<input name="productStock" type="number" min="0" placeholder="100" defaultValue={editingProduct?.stock ?? ""} required /></label><label className="bundle-toggle"><input type="checkbox" name="isBundle" checked={isBundleMode} onChange={() => setIsBundleMode(!isBundleMode)} /> <strong>Sell as a bundle</strong> <small>Pack several items together as one listing</small></label>{isBundleMode && <><label>Packager / brand name<input name="packagerName" placeholder="e.g. FarmFresh Packs" defaultValue={editingProduct?.packager ?? packagerName ?? ""} /></label><label>Bundle items (comma separated)<textarea name="bundleItems" rows={2} maxLength={300} defaultValue={editingProduct ? (editingProduct.bundleItems ?? []).join(", ") : bundleItemsInput} placeholder="e.g. 2kg rice, 1kg beans, 500g tomatoes, 1 litre oil" /></label></>}<label>Product photo <span>({editingProduct ? "leave empty to keep the current photo" : "required"})</span><input name="productImage" type="file" accept="image/jpeg,image/png,image/webp" required={!editingProduct} /></label><div className="vendor-form-actions"><button type="submit" className="vendor-primary-button" disabled={savingProduct}>{savingProduct ? "Saving…" : editingProduct ? "Save changes" : "Save product"}</button><button type="button" className="vendor-outline-button" onClick={closeProductForm} disabled={savingProduct}>Cancel</button></div></form>}
+              <div className="vendor-product-grid">{visibleProducts.map((product) => <article className={`vendor-product-card${product.isBundle ? " is-bundle" : ""}`} key={product.id}><div className="vendor-product-art">{product.imageUrl ? <Image src={product.imageUrl} alt={product.name} fill sizes="220px" unoptimized /> : <span>{product.emoji}</span>}{product.isBundle && <span className="bundle-pill">Bundle</span>}<span className={product.stock < 15 ? "stock-pill low" : "stock-pill"}>{product.stock < 15 ? "Low stock" : "In stock"}</span></div><div className="vendor-product-details"><small>{[product.category, product.productKind].filter(Boolean).join(" · ")}</small><h3>{product.name}{product.packager && <span className="packager-tag">Packed by {product.packager}</span>}</h3><strong>{currency.format(product.price)}<small> / unit</small></strong>{product.isBundle && <p className="bundle-items"><strong>Includes:</strong> {product.bundleItems?.join(" · ") ?? "—"}</p>}<p className="vendor-product-description">{product.description || "No description added yet."}</p><p>Available stock: {product.stock} units{product.expiryDate ? ` · Expires ${product.expiryDate}` : ""}{product.nafdacNumber ? ` · NAFDAC ${product.nafdacNumber}` : ""}</p><div className="vendor-product-actions"><button type="button" onClick={() => editProduct(product)} disabled={busyProductId === product.id}>Edit</button><button type="button" className="danger" onClick={() => void deleteProduct(product)} disabled={busyProductId === product.id}>{busyProductId === product.id ? "Deleting…" : "Delete"}</button><button type="button" onClick={() => setActiveTab("Inventory")}>Manage stock →</button></div></div></article>)}</div>
               {visibleProducts.length === 0 && <p className="vendor-empty-search">{search ? "No products match that search. Try a different name or category." : canListProducts ? "No products listed yet. Add your first bulk product to begin." : "Product listing will be available after your business is approved."}</p>}
             </section>
           )}

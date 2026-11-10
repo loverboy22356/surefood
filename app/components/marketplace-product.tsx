@@ -28,6 +28,12 @@ export type MarketplaceProduct = {
   expiryDate?: string;
   nafdacNumber?: string;
   liveListing?: boolean;
+  /** When true, this listing is a bundle of several items packed together. */
+  isBundle?: boolean;
+  /** The items included in a bundle, e.g. ["2kg rice", "1kg beans", "500g tomatoes"]. */
+  bundleItems?: string[];
+  /** The seller's own packager/packaging brand shown on the listing. */
+  packager?: string;
 };
 
 export const sellerRoleLabels: Record<string, string> = {
@@ -316,6 +322,8 @@ export function ProductDetailsDialog({
             <div><span aria-hidden="true">🛡</span><strong>{product.sellerVerified ? `Verified ${roleLabel}` : "Approved listing"}</strong><small>Reviewed by Sure Foodz</small></div>
             <div><span aria-hidden="true">🚚</span><strong>Seller delivery</strong><small>Fast confirmed before you pay</small></div>
             <div><span aria-hidden="true">🔒</span><strong>Protected order</strong><small>Secure checkout</small></div>
+            {product.packager && <div><span aria-hidden="true">🏭</span><strong>Packed by {product.packager}</strong><small>{product.sellerName}</small></div>}
+            {product.isBundle && <div><span aria-hidden="true">📦</span><strong>Bundle</strong><small>{product.bundleItems?.length} items packed together</small></div>}
           </div>
           <div className="pm-details">
             <h3>Product Details</h3>
@@ -327,6 +335,10 @@ export function ProductDetailsDialog({
               <div><dt>Category</dt><dd>{product.category}</dd></div>
               {product.expiryDate && <div><dt>Expiry date</dt><dd>{product.expiryDate}</dd></div>}
               {product.nafdacNumber && <div><dt>NAFDAC number</dt><dd>{product.nafdacNumber}</dd></div>}
+              {product.packager && <div><dt>Packager</dt><dd>{product.packager}</dd></div>}
+              {product.isBundle && product.bundleItems && product.bundleItems.length > 0 && (
+                <div><dt>Bundle includes</dt><dd>{product.bundleItems.join(", ")}</dd></div>
+              )}
             </dl>
           </div>
           {product.sellerId && (
@@ -412,6 +424,12 @@ export type ApiProduct = {
   productKind?: string;
   expiryDate?: string;
   nafdacNumber?: string;
+  /** When true, this listing is a bundle of several items packed together. */
+  isBundle?: boolean;
+  /** The items included in a bundle. */
+  bundleItems?: string[];
+  /** The seller's own packager/packaging brand shown on the listing. */
+  packager?: string;
 };
 
 export function apiProductToListing(product: ApiProduct): MarketplaceProduct {
@@ -440,6 +458,9 @@ export function apiProductToListing(product: ApiProduct): MarketplaceProduct {
     expiryDate: product.expiryDate,
     nafdacNumber: product.nafdacNumber,
     liveListing: true,
+    isBundle: product.isBundle,
+    bundleItems: product.bundleItems,
+    packager: product.packager,
   };
 }
 

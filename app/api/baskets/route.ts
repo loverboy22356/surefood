@@ -5,7 +5,7 @@ import { cleanString, jsonError, readJson } from "@/lib/http";
 import { isValidPhone } from "@/lib/requests";
 import { PUBLIC_CACHE_HEADERS } from "@/lib/server-cache";
 import {
-  basketPlans,
+  basketPlans as defaultPlans,
   findPlan,
   isBasketFrequency,
   isDeliveryDay,
@@ -17,7 +17,35 @@ const MINIMUM_BASKET_MINOR = 500_000;
 
 /** The shelf of ready-made baskets. Identical for every visitor, so it caches well. */
 export async function GET() {
-  return Response.json({ plans: basketPlans }, { headers: PUBLIC_CACHE_HEADERS });
+  if (!firebaseAdminConfigured()) {
+    return Response.json({ plans: defaultPlans }, { headers: PUBLIC_CACHE_HEADERS });
+  }
+  try {
+    const snapshot = await adminDb()
+      .collection("basketPlans")
+      .orderBy("createdAt", "desc")
+      .limit(100)
+      .get();
+    const plans = snapshot.docs.map((document) => {
+      const data = document.data() ?? {};
+      return {
+        id: document.id,
+        name: typeof data.name === "string" ? data.name : "Basket plan",
+        audience: typeof data.audience === "string" ? data.audience : "",
+        emoji: typeof data.emoji === "string" ? data.emoji : "🧺",
+        accent: typeof data.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(data.accent)
+          ? data.accent
+          : "#6d28d9",
+        items: Array.isArray(data.items) ? data.items : ["Staple food items"],
+        tiers: Array.isArray(data.tiers) ? data.tiers : [{ id: "standard", label: "Standard", priceMinor: 5_000_000, note: "Everyday value" }],
+        popular: Boolean(data.popular),
+      };
+    });
+    return Response.json({ plans: plans.length ? plans : defaultPlans }, { headers: PUBLIC_CACHE_HEADERS });
+  } catch (error) {
+    console.error("Could not load basket plans.", error);
+    return Response.json({ plans: defaultPlans }, { headers: PUBLIC_CACHE_HEADERS });
+  }
 }
 
 export async function POST(request: Request) {

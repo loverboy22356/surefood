@@ -44,6 +44,8 @@ export function ProductTile({
   const role = sellerRoleLabels[product.sellerRole ?? ""] ?? "Seller";
   const place = product.sellerCity || product.sellerRegion || "";
   const seller = product.sellerName || `Sure Foodz ${role.toLowerCase()}`;
+  const isBundle = Boolean(product.isBundle);
+  const packager = product.packager;
 
   return (
     <article className={`p-tile${variant === "rail" ? " is-rail" : ""}${soldOut ? " is-out" : ""}`}>
@@ -105,7 +107,9 @@ export function ProductTile({
           {place && <span className="p-tile-place">{place}</span>}
         </p>
 
-        <Link className="p-tile-title" href={`/product/${product.id}`}>{product.name}</Link>
+        <Link className="p-tile-title" href={`/product/${product.id}`}>{product.name}{packager && <span className="p-tile-packager">Packed by {packager}</span>}</Link>
+
+        {isBundle && <p className="p-tile-bundle">Bundle · {product.bundleItems?.slice(0, 3).join(" · ") ?? "multiple items"}</p>}
 
         <div className="p-tile-price">
           <strong>{formatMarketMoney(product.price, product.currency)}</strong>

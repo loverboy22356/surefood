@@ -191,6 +191,8 @@ export default function ProductPage() {
                   <span>Availability: <b className={inStock ? "is-in" : undefined}>{inStock ? "In stock" : "Out of stock"}</b></span>
                   <span>Category: <b>{product.category}</b></span>
                   <span>Sold by: <b>{sellerName}</b></span>
+                  {product.packager && <span>Packed by: <b>{product.packager}</b></span>}
+                  {product.isBundle && <span>Type: <b>Bundle</b></span>}
                 </div>
 
                 <div className="pd-price">
@@ -198,6 +200,17 @@ export default function ProductPage() {
                   {product.oldPrice && <del>{formatMarketMoney(product.oldPrice, product.currency)}</del>}
                   {off > 0 && <em>-{off}%</em>}
                 </div>
+                {product.isBundle && product.bundleItems && product.bundleItems.length > 0 && (
+                  <div className="pd-bundle-info">
+                    <span>📦 Bundle includes:</span>
+                    <ul>{product.bundleItems.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </div>
+                )}
+                {product.packager && (
+                  <div className="pd-packager-info">
+                    <span>🏭 Packed by:</span> <b>{product.packager}</b>
+                  </div>
+                )}
                 <p className="pd-paylater">
                   or <Link href={payLaterHref(product, quantity)}>pay over 30 days with Pay Later</Link>
                   {inStock && <> · {product.stock} available from this seller</>}
