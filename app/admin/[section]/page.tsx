@@ -7,16 +7,24 @@ import { useEffect, useState } from "react";
 import { firebaseAuth, firebaseConfigured } from "@/lib/firebase/client";
 
 export default function AdminSectionPage() {
-  const params = useParams<{ section: string }>();
+  const paramsPromise = useParams<{ section: string }>();
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [staff, setStaff] = useState(false);
   const [section, setSection] = useState("dashboard");
 
   useEffect(() => {
-    const s = typeof params.section === "string" ? params.section : "dashboard";
-    setSection(s);
-  }, [params.section]);
+    let active = true;
+    void (async () => {
+      try {
+        const params = await paramsPromise;
+        if (active) setSection(typeof params.section === "string" ? params.section : "dashboard");
+      } catch {
+        /* params may not be ready yet */
+      }
+    })();
+    return () => { active = false; };
+  }, [paramsPromise]);
 
   useEffect(() => {
     if (!firebaseConfigured()) {

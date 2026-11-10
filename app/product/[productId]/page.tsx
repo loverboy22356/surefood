@@ -31,9 +31,9 @@ const infoTabs: Array<{ key: InfoTab; label: string }> = [
 ];
 
 export default function ProductPage() {
-  const params = useParams<{ productId: string }>();
+  const paramsPromise = useParams<{ productId: string }>();
   const router = useRouter();
-  const productId = typeof params.productId === "string" ? params.productId : "";
+  const [productId, setProductId] = useState("");
   const [catalog, setCatalog] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,6 +41,19 @@ export default function ProductPage() {
   const [notice, setNotice] = useState("");
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<InfoTab>("description");
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const params = await paramsPromise;
+        if (active) setProductId(typeof params.productId === "string" ? params.productId : "");
+      } catch {
+        /* params may not be ready yet */
+      }
+    })();
+    return () => { active = false; };
+  }, [paramsPromise]);
 
   useEffect(() => {
     let active = true;
